@@ -1,0 +1,545 @@
+body {
+  margin: 0;
+  overflow: hidden;
+  background-color: #050505;
+  font-family: 'Share Tech Mono', monospace;
+  color: #00ff66;
+  user-select: none;
+}
+
+#gameCanvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  cursor: crosshair;
+}
+
+/* HUD コンテナ */
+#hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+/* パネル基本 */
+.hud-panel {
+  position: absolute;
+  top: 20px;
+  background: rgba(5, 12, 8, 0.7);
+  border: 1px solid rgba(0, 255, 102, 0.4);
+  box-shadow: 0 0 15px rgba(0, 255, 102, 0.15), inset 0 0 10px rgba(0, 255, 102, 0.15);
+  padding: 15px 20px;
+  width: 280px;
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+}
+
+.left-panel {
+  left: 20px;
+}
+
+.right-panel {
+  right: 20px;
+}
+
+.panel-header {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 2px;
+  color: #00ff66;
+  border-bottom: 1px solid rgba(0, 255, 102, 0.3);
+  padding-bottom: 5px;
+  margin-bottom: 15px;
+  text-shadow: 0 0 5px rgba(0, 255, 102, 0.5);
+}
+
+.hud-item {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.hud-item:last-child {
+  margin-bottom: 0;
+}
+
+.label {
+  font-size: 12px;
+  color: rgba(0, 255, 102, 0.7);
+  margin-bottom: 4px;
+  letter-spacing: 1px;
+}
+
+.value {
+  font-size: 18px;
+  font-weight: bold;
+  font-family: 'Orbitron', sans-serif;
+  text-shadow: 0 0 5px currentColor;
+}
+
+.green-text {
+  color: #00ff66;
+}
+
+.yellow-text {
+  color: #ffcc00;
+  text-shadow: 0 0 5px rgba(255, 204, 0, 0.5);
+}
+
+.red-text {
+  color: #ff3366;
+  text-shadow: 0 0 5px rgba(255, 51, 102, 0.5);
+}
+
+
+/* メーターバー */
+.bar-container {
+  width: 100%;
+  height: 6px;
+  background: rgba(0, 255, 102, 0.1);
+  border: 1px solid rgba(0, 255, 102, 0.3);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.bar-fill {
+  height: 100%;
+  width: 100%;
+  transition: width 0.1s ease-out;
+}
+
+.red-bar {
+  background: #ff3366;
+  box-shadow: 0 0 8px rgba(255, 51, 102, 0.8);
+}
+
+.cyan-bar {
+  background: #00e5ff;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.8);
+}
+
+/* パルスアニメーション */
+.animate-pulse {
+  animation: pulse 1.5s infinite alternate;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; text-shadow: 0 0 2px rgba(0,255,102,0.3); }
+  100% { opacity: 1; text-shadow: 0 0 8px rgba(0,255,102,0.8); }
+}
+
+/* 中央の照準器（レティクル） */
+.reticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 1px dashed rgba(0, 255, 102, 0.25);
+  box-shadow: 0 0 10px rgba(0, 255, 102, 0.05);
+}
+
+.reticle-circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(0, 255, 102, 0.6);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(0, 255, 102, 0.4);
+}
+
+.reticle-hair-h {
+  position: absolute;
+  top: 50%;
+  left: -30px;
+  right: -30px;
+  height: 1px;
+  background: rgba(0, 255, 102, 0.4);
+}
+
+.reticle-hair-v {
+  position: absolute;
+  left: 50%;
+  top: -30px;
+  bottom: -30px;
+  width: 1px;
+  background: rgba(0, 255, 102, 0.4);
+}
+
+/* 四隅のブラケット */
+.reticle-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(0, 255, 102, 0.5);
+}
+
+.reticle-corner.tl { top: -15px; left: -15px; border-right: none; border-bottom: none; }
+.reticle-corner.tr { top: -15px; right: -15px; border-left: none; border-bottom: none; }
+.reticle-corner.bl { bottom: -15px; left: -15px; border-right: none; border-top: none; }
+.reticle-corner.br { bottom: -15px; right: -15px; border-left: none; border-top: none; }
+
+/* 走査線（スキャンライン）エフェクト */
+.scanlines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.25) 50%
+  );
+  background-size: 100% 4px;
+  z-index: 15;
+}
+
+/* ビネット（画面端を暗くする） */
+.vignette {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(0,0,0,0) 40%, rgba(0,0,0,0.7) 100%);
+  z-index: 12;
+}
+
+/* スタート待機画面 */
+#startScreen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(5, 10, 5, 0.85);
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #00ff66;
+  text-align: center;
+  font-family: 'Orbitron', sans-serif;
+  backdrop-filter: blur(8px);
+  transition: opacity 0.5s ease;
+}
+
+.start-content {
+  border: 1px solid rgba(0, 255, 102, 0.4);
+  background: rgba(5, 12, 8, 0.9);
+  padding: 40px 60px;
+  border-radius: 8px;
+  box-shadow: 0 0 30px rgba(0, 255, 102, 0.2), inset 0 0 20px rgba(0, 255, 102, 0.15);
+}
+
+#startScreen h1 {
+  font-size: 36px;
+  margin: 0 0 10px 0;
+  letter-spacing: 4px;
+  text-shadow: 0 0 10px rgba(0, 255, 102, 0.8);
+}
+
+.subtitle {
+  font-size: 16px;
+  color: #ffcc00;
+  letter-spacing: 6px;
+  margin: 0 0 30px 0;
+  text-shadow: 0 0 5px rgba(255, 204, 0, 0.5);
+}
+
+.instructions {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 16px;
+  line-height: 1.6;
+  color: rgba(0, 255, 102, 0.8);
+}
+
+.instructions p {
+  margin: 8px 0;
+}
+
+.blink-text {
+  margin-top: 30px !important;
+  font-size: 20px;
+  font-weight: bold;
+  color: #00ff66;
+  letter-spacing: 2px;
+  animation: blink 1.2s infinite;
+  text-shadow: 0 0 10px rgba(0, 255, 102, 0.8);
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+
+/* 一時停止画面 */
+#pauseScreen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(10, 8, 5, 0.85); /* 少し暖色寄りの暗さ */
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #ffcc00; /* 一時停止はイエロー警告カラー */
+  text-align: center;
+  font-family: 'Orbitron', sans-serif;
+  backdrop-filter: blur(8px);
+  transition: opacity 0.3s ease;
+}
+
+.pause-content {
+  border: 1px solid rgba(255, 204, 0, 0.4);
+  background: rgba(12, 10, 5, 0.9);
+  padding: 40px 60px;
+  border-radius: 8px;
+  box-shadow: 0 0 30px rgba(255, 204, 0, 0.2), inset 0 0 20px rgba(255, 204, 0, 0.15);
+}
+
+#pauseScreen h2 {
+  font-size: 32px;
+  margin: 0 0 10px 0;
+  letter-spacing: 4px;
+  text-shadow: 0 0 10px rgba(255, 204, 0, 0.8);
+}
+
+.menu-options {
+  margin-top: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  align-items: center;
+}
+
+.menu-btn {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 2px;
+  color: #ffcc00;
+  background: rgba(255, 204, 0, 0.05);
+  border: 1px solid rgba(255, 204, 0, 0.4);
+  padding: 12px 30px;
+  width: 250px;
+  border-radius: 4px;
+  cursor: pointer;
+  pointer-events: auto; /* ボタンをクリック可能にする */
+  transition: all 0.2s ease;
+  box-shadow: 0 0 5px rgba(255, 204, 0, 0.05);
+}
+
+.menu-btn:hover {
+  background: #ffcc00;
+  color: #0c0a05;
+  box-shadow: 0 0 15px rgba(255, 204, 0, 0.6);
+  border-color: #ffcc00;
+}
+
+.menu-btn:active {
+  transform: scale(0.98);
+}
+
+.help-text {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px;
+  color: rgba(255, 204, 0, 0.6);
+  margin-top: 30px;
+  margin-bottom: 0;
+}
+
+/* システムログ表示エリア */
+#logArea {
+  position: absolute;
+  bottom: 25px;
+  left: 25px;
+  width: 320px;
+  height: 150px;
+  z-index: 10;
+  pointer-events: none;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: #00ff66;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  box-sizing: border-box;
+}
+
+.log-entry {
+  background: rgba(5, 12, 8, 0.6);
+  border-left: 3px solid #00ff66;
+  padding: 6px 12px;
+  margin-top: 5px;
+  border-radius: 0 4px 4px 0;
+  animation: logFadeIn 0.3s ease-out;
+  text-shadow: 0 0 2px rgba(0, 255, 102, 0.5);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.log-entry.warning {
+  border-left-color: #ffcc00;
+  color: #ffcc00;
+  text-shadow: 0 0 2px rgba(255, 204, 0, 0.5);
+}
+
+.log-entry.danger {
+  border-left-color: #ff3366;
+  color: #ff3366;
+  text-shadow: 0 0 2px rgba(255, 51, 102, 0.5);
+  animation: logFadeIn 0.3s ease-out, logDangerBlink 0.5s infinite alternate;
+}
+
+@keyframes logFadeIn {
+  from { opacity: 0; transform: translateX(-15px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes logDangerBlink {
+  0% { border-left-color: #ff3366; }
+  100% { border-left-color: #ff99bb; }
+}
+
+/* ゲームクリア画面 */
+#clearScreen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(5, 12, 10, 0.85); /* 少しグリーン寄りの暗さ */
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #00ff66;
+  text-align: center;
+  font-family: 'Orbitron', sans-serif;
+  backdrop-filter: blur(8px);
+  transition: opacity 0.5s ease;
+}
+
+.clear-content {
+  border: 1px solid rgba(0, 255, 102, 0.4);
+  background: rgba(5, 12, 8, 0.9);
+  padding: 50px 70px;
+  border-radius: 8px;
+  box-shadow: 0 0 40px rgba(0, 255, 102, 0.25), inset 0 0 20px rgba(0, 255, 102, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#clearScreen h2 {
+  font-size: 36px;
+  margin: 0 0 10px 0;
+  letter-spacing: 4px;
+  color: #00ff66;
+  text-shadow: 0 0 15px rgba(0, 255, 102, 0.8);
+}
+
+.result-stats {
+  margin: 30px 0;
+  font-family: 'Share Tech Mono', monospace;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  background: rgba(0, 255, 102, 0.05);
+  padding: 20px 30px;
+  border-radius: 4px;
+  border: 1px dashed rgba(0, 255, 102, 0.2);
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  width: 320px;
+  font-size: 18px;
+}
+
+.stat-label {
+  color: rgba(0, 255, 102, 0.7);
+  text-align: left;
+}
+
+.stat-value {
+  font-weight: bold;
+  font-family: 'Orbitron', sans-serif;
+  text-align: right;
+}/* ゲームオーバー画面 */
+#gameOverScreen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 5, 5, 0.85); /* レッド寄りの暗さ */
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #ff3366;
+  text-align: center;
+  font-family: 'Orbitron', sans-serif;
+  backdrop-filter: blur(8px);
+  transition: opacity 0.5s ease;
+}
+
+.gameover-content {
+  border: 1px solid rgba(255, 51, 102, 0.4);
+  background: rgba(15, 5, 5, 0.9);
+  padding: 50px 70px;
+  border-radius: 8px;
+  box-shadow: 0 0 40px rgba(255, 51, 102, 0.25), inset 0 0 20px rgba(255, 51, 102, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#gameOverScreen h2 {
+  font-size: 36px;
+  margin: 0 0 10px 0;
+  letter-spacing: 4px;
+  color: #ff3366;
+  text-shadow: 0 0 15px rgba(255, 51, 102, 0.8);
+}
+
+.red-text {
+  color: #ff3366 !important;
+}
+
+.red-border {
+  background: rgba(255, 51, 102, 0.05) !important;
+  border: 1px dashed rgba(255, 51, 102, 0.3) !important;
+}
+
+.menu-btn.red-btn {
+  border-color: rgba(255, 51, 102, 0.4) !important;
+  color: #ff3366 !important;
+}
+
+.menu-btn.red-btn:hover {
+  background: rgba(255, 51, 102, 0.15) !important;
+  box-shadow: 0 0 15px rgba(255, 51, 102, 0.4) !important;
+}
