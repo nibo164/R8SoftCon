@@ -3,9 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <title>Drone Inspection Game</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -15,14 +18,20 @@
         <div class="panel-header">DRONE TELEMETRY</div>
         <div class="hud-item">
           <span class="label">SYS STATUS:</span>
-          <span id="sysStatus" class="value green-text animate-pulse">ONLINE</span>
+          <span id="sysStatus" class="value green-text animate-pulse"
+            >ONLINE</span
+          >
         </div>
         <div class="hud-item">
           <span class="label">INTEGRITY:</span>
           <div class="bar-container">
-            <div id="hpBar" class="bar-fill red-bar" style="width: 100%;"></div>
+            <div id="hpBar" class="bar-fill red-bar" style="width: 100%"></div>
           </div>
           <span id="hp" class="value">100%</span>
+        </div>
+        <div class="hud-item" id="padStatusItem" style="display: none">
+          <span class="label">INPUT DEVICE:</span>
+          <span id="padStatus" class="value cyan-text">GAMEPAD</span>
         </div>
       </div>
 
@@ -30,13 +39,17 @@
       <div class="hud-panel right-panel">
         <div class="panel-header">MISSION DATA</div>
         <div class="hud-item">
-          <span class="label">ANOMALIES FOUND:</span>
+          <span class="label">SCORE:</span>
           <span id="score" class="value yellow-text">0</span>
+        </div>
+        <div class="hud-item">
+          <span class="label">ANOMALIES INSPECTED:</span>
+          <span id="inspected" class="value green-text">0 / 0</span>
         </div>
         <div class="hud-item">
           <span class="label">DISTANCE:</span>
           <div class="bar-container">
-            <div id="distBar" class="bar-fill cyan-bar" style="width: 0%;"></div>
+            <div id="distBar" class="bar-fill cyan-bar" style="width: 0%"></div>
           </div>
           <span id="distance" class="value">0m / 300m</span>
         </div>
@@ -53,27 +66,54 @@
         <div class="reticle-corner br"></div>
       </div>
 
+      <!-- コンボ表示 -->
+      <div id="comboDisplay">COMBO ×2</div>
+
       <!-- スキャンラインノイズ -->
       <div class="scanlines"></div>
       <div class="vignette"></div>
     </div>
 
+    <!-- 図鑑カード（発見した異常の解説・土木豆知識） -->
+    <div id="infoCard" style="display: none">
+      <div class="info-title" id="infoTitle"></div>
+      <div class="info-desc" id="infoDesc"></div>
+    </div>
+
     <!-- スタート待機画面 -->
     <div id="startScreen">
       <div class="start-content">
-        <h1>SEWER INSPECTOR</h1>
+        <h1>DRAIN DIVE</h1>
         <p class="subtitle">SYSTEMS READY</p>
+        <div class="jp-intro">
+          <p>きみは「下水道点検ドローン」のパイロット！</p>
+          <p>まちの地下を通る下水道管の中を飛んで、</p>
+          <p>
+            ひび割れ・腐食などの異常を <strong>クリックで点検</strong> しよう！
+          </p>
+          <p>壁や障害物にぶつからずに 300m 先のゴールを目指せ！</p>
+        </div>
         <div class="instructions">
-          <p>CONTROLS: WASD or ARROW KEYS</p>
-          <p>MISSION: INSPECT 300m & FIND ANOMALIES</p>
-          <p>AVOID: CONCRETE WALLS & WATER DRIPS (DAMAGE)</p>
-          <p class="blink-text">PRESS [SPACE] TO LAUNCH DRONE</p>
+          <p>MOVE: [WASD] / [ARROW KEYS]&nbsp;&nbsp;INSPECT: [CLICK]</p>
+          <p>PAUSE: [ESC]&nbsp;&nbsp;SOUND ON/OFF: [M]</p>
+        </div>
+        <div class="pad-instructions" id="padInstructions">
+          <p class="pad-title">🎮 GAMEPAD DETECTED</p>
+          <p>
+            MOVE: [左スティック] / [十字キー]&nbsp;&nbsp;INSPECT: [A] / [R2]
+          </p>
+          <p>PAUSE: [START]&nbsp;&nbsp;画面中央のレティクルで狙って点検！</p>
+        </div>
+        <div class="instructions">
+          <p class="blink-text" id="startPrompt">
+            PRESS [SPACE] TO LAUNCH DRONE
+          </p>
         </div>
       </div>
     </div>
 
     <!-- 一時停止画面 -->
-    <div id="pauseScreen" style="display: none;">
+    <div id="pauseScreen" style="display: none">
       <div class="pause-content">
         <h2>SYSTEM PAUSED</h2>
         <p class="subtitle">DRONE IN HOLD MODE</p>
@@ -89,27 +129,81 @@
     <div id="logArea"></div>
 
     <!-- ゲームクリア画面 -->
-    <div id="clearScreen" style="display: none;">
+    <div id="clearScreen" style="display: none">
       <div class="clear-content">
         <h2>MISSION ACCOMPLISHED</h2>
-        <p class="subtitle">INSPECTION COMPLETED (300m)</p>
-        <div class="result-stats">
-          <div class="stat-item">
-            <span class="stat-label">FINAL SCORE:</span>
-            <span id="finalScore" class="stat-value yellow-text">0</span>
+        <p class="subtitle">点検完了レポート (300m)</p>
+
+        <div class="clear-columns">
+          <!-- 左カラム: 成績 -->
+          <div class="clear-col">
+            <div id="rankBadge" class="rank-badge rank-S">S</div>
+            <p id="rankTitle" class="rank-title">認定: マスター点検技師</p>
+            <div class="result-stats">
+              <div class="stat-item">
+                <span class="stat-label">発見した異常:</span>
+                <span id="finalFound" class="stat-value green-text"
+                  >0 / 0 件</span
+                >
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">見逃した異常:</span>
+                <span id="finalMissed" class="stat-value red-text">0 件</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">発見率:</span>
+                <span id="finalRate" class="stat-value yellow-text">0%</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">最大コンボ:</span>
+                <span id="finalCombo" class="stat-value yellow-text">×1</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">FINAL SCORE:</span>
+                <span id="finalScore" class="stat-value yellow-text">0</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">機体の残り体力:</span>
+                <span id="finalHp" class="stat-value green-text">100%</span>
+              </div>
+            </div>
+            <p id="rankComment" class="rank-comment"></p>
           </div>
-          <div class="stat-item">
-            <span class="stat-label">REMAINING INTEGRITY:</span>
-            <span id="finalHp" class="stat-value green-text">100%</span>
+
+          <!-- 右カラム: 土木PR（守った暮らし＋点検図鑑） -->
+          <div class="clear-col">
+            <div class="impact-box">
+              <div class="impact-label">きみの点検が守った暮らし</div>
+              <div class="impact-value">
+                <span id="impactHouseholds">0</span
+                ><span class="impact-unit">世帯</span>
+              </div>
+              <div class="impact-note" id="impactNote"></div>
+              <div class="impact-disclaimer">
+                ※世帯数はこのゲームの中の目安です
+              </div>
+            </div>
+
+            <div class="codex-box">
+              <div class="codex-header">
+                <span>点検図鑑</span>
+                <span class="codex-progress" id="codexProgress"
+                  >0 / 6 種類</span
+                >
+              </div>
+              <div class="codex-grid" id="codexGrid"></div>
+              <div class="codex-hint" id="codexHint"></div>
+            </div>
           </div>
         </div>
+
         <div class="menu-options">
           <button id="clearBackBtn" class="menu-btn">RETURN TO TERMINAL</button>
         </div>
       </div>
     </div>
     <!-- ゲームオーバー画面 -->
-    <div id="gameOverScreen" style="display: none;">
+    <div id="gameOverScreen" style="display: none">
       <div class="gameover-content">
         <h2>SYSTEM DAMAGE CRITICAL</h2>
         <p class="subtitle red-text">DRONE DESTROYED</p>
@@ -123,12 +217,18 @@
             <span id="failScore" class="stat-value yellow-text">0</span>
           </div>
         </div>
+        <p class="gameover-salvage" id="failSalvage"></p>
+        <p class="gameover-tip">
+          本物の点検も安全第一！障害物に気をつけて、もう一度チャレンジ！
+        </p>
         <div class="menu-options">
-          <button id="gameOverBackBtn" class="menu-btn red-btn">RETURN TO TERMINAL</button>
+          <button id="gameOverBackBtn" class="menu-btn red-btn">
+            RETURN TO TERMINAL
+          </button>
         </div>
       </div>
     </div>
-    
+
     <canvas id="gameCanvas"></canvas>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>

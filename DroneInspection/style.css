@@ -2,7 +2,7 @@ body {
   margin: 0;
   overflow: hidden;
   background-color: #050505;
-  font-family: 'Share Tech Mono', monospace;
+  font-family: "Share Tech Mono", monospace;
   color: #00ff66;
   user-select: none;
 }
@@ -36,7 +36,9 @@ body {
   top: 20px;
   background: rgba(5, 12, 8, 0.7);
   border: 1px solid rgba(0, 255, 102, 0.4);
-  box-shadow: 0 0 15px rgba(0, 255, 102, 0.15), inset 0 0 10px rgba(0, 255, 102, 0.15);
+  box-shadow:
+    0 0 15px rgba(0, 255, 102, 0.15),
+    inset 0 0 10px rgba(0, 255, 102, 0.15);
   padding: 15px 20px;
   width: 280px;
   border-radius: 4px;
@@ -52,7 +54,7 @@ body {
 }
 
 .panel-header {
-  font-family: 'Orbitron', sans-serif;
+  font-family: "Orbitron", sans-serif;
   font-weight: 700;
   font-size: 14px;
   letter-spacing: 2px;
@@ -83,7 +85,7 @@ body {
 .value {
   font-size: 18px;
   font-weight: bold;
-  font-family: 'Orbitron', sans-serif;
+  font-family: "Orbitron", sans-serif;
   text-shadow: 0 0 5px currentColor;
 }
 
@@ -100,7 +102,6 @@ body {
   color: #ff3366;
   text-shadow: 0 0 5px rgba(255, 51, 102, 0.5);
 }
-
 
 /* メーターバー */
 .bar-container {
@@ -136,8 +137,14 @@ body {
 }
 
 @keyframes pulse {
-  0% { opacity: 0.6; text-shadow: 0 0 2px rgba(0,255,102,0.3); }
-  100% { opacity: 1; text-shadow: 0 0 8px rgba(0,255,102,0.8); }
+  0% {
+    opacity: 0.6;
+    text-shadow: 0 0 2px rgba(0, 255, 102, 0.3);
+  }
+  100% {
+    opacity: 1;
+    text-shadow: 0 0 8px rgba(0, 255, 102, 0.8);
+  }
 }
 
 /* 中央の照準器（レティクル） */
@@ -191,10 +198,30 @@ body {
   border: 2px solid rgba(0, 255, 102, 0.5);
 }
 
-.reticle-corner.tl { top: -15px; left: -15px; border-right: none; border-bottom: none; }
-.reticle-corner.tr { top: -15px; right: -15px; border-left: none; border-bottom: none; }
-.reticle-corner.bl { bottom: -15px; left: -15px; border-right: none; border-top: none; }
-.reticle-corner.br { bottom: -15px; right: -15px; border-left: none; border-top: none; }
+.reticle-corner.tl {
+  top: -15px;
+  left: -15px;
+  border-right: none;
+  border-bottom: none;
+}
+.reticle-corner.tr {
+  top: -15px;
+  right: -15px;
+  border-left: none;
+  border-bottom: none;
+}
+.reticle-corner.bl {
+  bottom: -15px;
+  left: -15px;
+  border-right: none;
+  border-top: none;
+}
+.reticle-corner.br {
+  bottom: -15px;
+  right: -15px;
+  border-left: none;
+  border-top: none;
+}
 
 /* 走査線（スキャンライン）エフェクト */
 .scanlines {
@@ -203,10 +230,7 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    rgba(18, 16, 16, 0) 50%, 
-    rgba(0, 0, 0, 0.25) 50%
-  );
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
   background-size: 100% 4px;
   z-index: 15;
 }
@@ -218,7 +242,11 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle, rgba(0,0,0,0) 40%, rgba(0,0,0,0.7) 100%);
+  background: radial-gradient(
+    circle,
+    rgba(0, 0, 0, 0) 40%,
+    rgba(0, 0, 0, 0.7) 100%
+  );
   z-index: 12;
 }
 
@@ -236,7 +264,7 @@ body {
   align-items: center;
   color: #00ff66;
   text-align: center;
-  font-family: 'Orbitron', sans-serif;
+  font-family: "Orbitron", sans-serif;
   backdrop-filter: blur(8px);
   transition: opacity 0.5s ease;
 }
@@ -246,7 +274,9 @@ body {
   background: rgba(5, 12, 8, 0.9);
   padding: 40px 60px;
   border-radius: 8px;
-  box-shadow: 0 0 30px rgba(0, 255, 102, 0.2), inset 0 0 20px rgba(0, 255, 102, 0.15);
+  box-shadow:
+    0 0 30px rgba(0, 255, 102, 0.2),
+    inset 0 0 20px rgba(0, 255, 102, 0.15);
 }
 
 #startScreen h1 {
@@ -265,7 +295,7 @@ body {
 }
 
 .instructions {
-  font-family: 'Share Tech Mono', monospace;
+  font-family: "Share Tech Mono", monospace;
   font-size: 16px;
   line-height: 1.6;
   color: rgba(0, 255, 102, 0.8);
@@ -286,8 +316,13 @@ body {
 }
 
 @keyframes blink {
-  0%, 100% { opacity: 0.2; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* 一時停止画面 */
@@ -304,7 +339,7 @@ body {
   align-items: center;
   color: #ffcc00; /* 一時停止はイエロー警告カラー */
   text-align: center;
-  font-family: 'Orbitron', sans-serif;
+  font-family: "Orbitron", sans-serif;
   backdrop-filter: blur(8px);
   transition: opacity 0.3s ease;
 }
@@ -314,7 +349,9 @@ body {
   background: rgba(12, 10, 5, 0.9);
   padding: 40px 60px;
   border-radius: 8px;
-  box-shadow: 0 0 30px rgba(255, 204, 0, 0.2), inset 0 0 20px rgba(255, 204, 0, 0.15);
+  box-shadow:
+    0 0 30px rgba(255, 204, 0, 0.2),
+    inset 0 0 20px rgba(255, 204, 0, 0.15);
 }
 
 #pauseScreen h2 {
@@ -333,7 +370,7 @@ body {
 }
 
 .menu-btn {
-  font-family: 'Orbitron', sans-serif;
+  font-family: "Orbitron", sans-serif;
   font-weight: 700;
   font-size: 16px;
   letter-spacing: 2px;
@@ -361,7 +398,7 @@ body {
 }
 
 .help-text {
-  font-family: 'Share Tech Mono', monospace;
+  font-family: "Share Tech Mono", monospace;
   font-size: 14px;
   color: rgba(255, 204, 0, 0.6);
   margin-top: 30px;
@@ -377,7 +414,7 @@ body {
   height: 150px;
   z-index: 10;
   pointer-events: none;
-  font-family: 'Share Tech Mono', monospace;
+  font-family: "Share Tech Mono", monospace;
   font-size: 13px;
   color: #00ff66;
   overflow: hidden;
@@ -395,7 +432,7 @@ body {
   border-radius: 0 4px 4px 0;
   animation: logFadeIn 0.3s ease-out;
   text-shadow: 0 0 2px rgba(0, 255, 102, 0.5);
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 .log-entry.warning {
@@ -408,17 +445,29 @@ body {
   border-left-color: #ff3366;
   color: #ff3366;
   text-shadow: 0 0 2px rgba(255, 51, 102, 0.5);
-  animation: logFadeIn 0.3s ease-out, logDangerBlink 0.5s infinite alternate;
+  animation:
+    logFadeIn 0.3s ease-out,
+    logDangerBlink 0.5s infinite alternate;
 }
 
 @keyframes logFadeIn {
-  from { opacity: 0; transform: translateX(-15px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes logDangerBlink {
-  0% { border-left-color: #ff3366; }
-  100% { border-left-color: #ff99bb; }
+  0% {
+    border-left-color: #ff3366;
+  }
+  100% {
+    border-left-color: #ff99bb;
+  }
 }
 
 /* ゲームクリア画面 */
@@ -435,7 +484,7 @@ body {
   align-items: center;
   color: #00ff66;
   text-align: center;
-  font-family: 'Orbitron', sans-serif;
+  font-family: "Orbitron", sans-serif;
   backdrop-filter: blur(8px);
   transition: opacity 0.5s ease;
 }
@@ -445,7 +494,9 @@ body {
   background: rgba(5, 12, 8, 0.9);
   padding: 50px 70px;
   border-radius: 8px;
-  box-shadow: 0 0 40px rgba(0, 255, 102, 0.25), inset 0 0 20px rgba(0, 255, 102, 0.2);
+  box-shadow:
+    0 0 40px rgba(0, 255, 102, 0.25),
+    inset 0 0 20px rgba(0, 255, 102, 0.2);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -461,7 +512,7 @@ body {
 
 .result-stats {
   margin: 30px 0;
-  font-family: 'Share Tech Mono', monospace;
+  font-family: "Share Tech Mono", monospace;
   display: flex;
   flex-direction: column;
   gap: 15px;
@@ -485,9 +536,9 @@ body {
 
 .stat-value {
   font-weight: bold;
-  font-family: 'Orbitron', sans-serif;
+  font-family: "Orbitron", sans-serif;
   text-align: right;
-}/* ゲームオーバー画面 */
+} /* ゲームオーバー画面 */
 #gameOverScreen {
   position: absolute;
   top: 0;
@@ -501,7 +552,7 @@ body {
   align-items: center;
   color: #ff3366;
   text-align: center;
-  font-family: 'Orbitron', sans-serif;
+  font-family: "Orbitron", sans-serif;
   backdrop-filter: blur(8px);
   transition: opacity 0.5s ease;
 }
@@ -511,7 +562,9 @@ body {
   background: rgba(15, 5, 5, 0.9);
   padding: 50px 70px;
   border-radius: 8px;
-  box-shadow: 0 0 40px rgba(255, 51, 102, 0.25), inset 0 0 20px rgba(255, 51, 102, 0.2);
+  box-shadow:
+    0 0 40px rgba(255, 51, 102, 0.25),
+    inset 0 0 20px rgba(255, 51, 102, 0.2);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -542,4 +595,515 @@ body {
 .menu-btn.red-btn:hover {
   background: rgba(255, 51, 102, 0.15) !important;
   box-shadow: 0 0 15px rgba(255, 51, 102, 0.4) !important;
+}
+
+/* ============================================================
+   追加UI: 日本語イントロ / 図鑑カード / コンボ / 点検レポート
+   ============================================================ */
+
+/* 日本語用フォントスタック */
+.jp-intro,
+.info-title,
+.info-desc,
+.rank-title,
+.rank-comment,
+.gameover-tip {
+  font-family:
+    "Share Tech Mono", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+}
+
+/* スタート画面の日本語説明 */
+.jp-intro {
+  font-size: 15px;
+  line-height: 1.9;
+  color: rgba(220, 255, 235, 0.95);
+  border-top: 1px dashed rgba(0, 255, 102, 0.3);
+  border-bottom: 1px dashed rgba(0, 255, 102, 0.3);
+  padding: 14px 0;
+  margin: 0 0 20px 0;
+}
+
+.jp-intro p {
+  margin: 4px 0;
+}
+
+.jp-intro strong {
+  color: #ffcc00;
+  text-shadow: 0 0 5px rgba(255, 204, 0, 0.5);
+}
+
+/* 図鑑カード（異常の解説・豆知識） */
+#infoCard {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 480px;
+  max-width: 80vw;
+  background: rgba(5, 12, 8, 0.88);
+  border: 1px solid rgba(255, 204, 0, 0.5);
+  border-left: 4px solid #ffcc00;
+  border-radius: 0 6px 6px 0;
+  padding: 14px 20px;
+  z-index: 16;
+  pointer-events: none;
+  box-sizing: border-box;
+  box-shadow: 0 0 20px rgba(255, 204, 0, 0.15);
+  opacity: 0;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+#infoCard.show {
+  opacity: 1;
+}
+
+/* 豆知識バリエーション（マンホール通過時：シアン系） */
+#infoCard.trivia {
+  border-color: rgba(0, 229, 255, 0.5);
+  border-left-color: #00e5ff;
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.15);
+}
+
+#infoCard.trivia .info-title {
+  color: #00e5ff;
+  text-shadow: 0 0 5px rgba(0, 229, 255, 0.5);
+}
+
+.info-title {
+  font-size: 17px;
+  font-weight: bold;
+  color: #ffcc00;
+  text-shadow: 0 0 5px rgba(255, 204, 0, 0.5);
+  margin-bottom: 6px;
+}
+
+.info-desc {
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(230, 255, 240, 0.95);
+}
+
+/* コンボ表示 */
+#comboDisplay {
+  position: absolute;
+  top: calc(50% + 110px);
+  left: 50%;
+  transform: translate(-50%, 0) scale(0.8);
+  font-family: "Orbitron", sans-serif;
+  font-weight: 700;
+  font-size: 30px;
+  letter-spacing: 3px;
+  color: #ffcc00;
+  text-shadow: 0 0 12px rgba(255, 204, 0, 0.8);
+  opacity: 0;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+  pointer-events: none;
+  z-index: 11;
+}
+
+#comboDisplay.show {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
+/* 点検レポートのランクバッジ */
+.rank-badge {
+  font-family: "Orbitron", sans-serif;
+  font-size: 60px;
+  font-weight: 700;
+  width: 110px;
+  height: 110px;
+  line-height: 110px;
+  text-align: center;
+  border-radius: 50%;
+  border: 3px solid currentColor;
+  margin: 15px auto 10px auto;
+  text-shadow: 0 0 20px currentColor;
+  box-shadow:
+    0 0 25px rgba(255, 255, 255, 0.1),
+    inset 0 0 15px rgba(255, 255, 255, 0.05);
+}
+
+.rank-S {
+  color: #ffd700;
+}
+.rank-A {
+  color: #00ff66;
+}
+.rank-B {
+  color: #00e5ff;
+}
+.rank-C {
+  color: #aaaaaa;
+}
+
+.rank-title {
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffffff;
+  margin: 0;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+}
+
+.rank-comment {
+  font-size: 14px;
+  line-height: 1.8;
+  color: rgba(220, 255, 235, 0.9);
+  max-width: 440px;
+  margin: 0;
+}
+
+/* ゲームオーバー画面のひとこと */
+.gameover-tip {
+  font-size: 14px;
+  line-height: 1.8;
+  color: rgba(255, 200, 210, 0.9);
+  max-width: 440px;
+  margin: 0 0 10px 0;
+}
+
+/* レポートは項目が多いのでコンパクトに */
+#clearScreen .clear-content {
+  padding: 26px 44px;
+  max-height: 94vh;
+  overflow-y: auto;
+}
+
+#clearScreen .result-stats {
+  margin: 16px 0;
+  gap: 9px;
+  padding: 14px 24px;
+}
+
+#clearScreen .stat-item {
+  font-size: 15px;
+  width: 300px;
+}
+
+/* ============================================================
+   点検レポートの2カラムレイアウト
+   左: 成績（ランク・スタッツ） / 右: 土木PR（守った暮らし・図鑑）
+   ============================================================ */
+.clear-columns {
+  display: flex;
+  gap: 36px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.clear-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#clearScreen .rank-badge {
+  margin: 6px auto 8px auto;
+}
+
+/* ------------------------------------------------------------
+   土木PR: 守った暮らし（世帯数）
+   ------------------------------------------------------------ */
+.impact-box {
+  width: 360px;
+  box-sizing: border-box;
+  margin-top: 4px;
+  padding: 16px 22px 14px 22px;
+  border: 1px solid rgba(0, 229, 255, 0.45);
+  border-radius: 6px;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 229, 255, 0.1),
+    rgba(0, 229, 255, 0.02)
+  );
+  box-shadow:
+    0 0 22px rgba(0, 229, 255, 0.15),
+    inset 0 0 18px rgba(0, 229, 255, 0.06);
+  text-align: center;
+}
+
+.impact-label {
+  font-family:
+    "Share Tech Mono", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: rgba(0, 229, 255, 0.85);
+  margin-bottom: 4px;
+}
+
+.impact-value {
+  font-family: "Orbitron", sans-serif;
+  font-weight: 700;
+  font-size: 46px;
+  line-height: 1.1;
+  color: #00e5ff;
+  text-shadow: 0 0 18px rgba(0, 229, 255, 0.7);
+}
+
+.impact-unit {
+  font-size: 20px;
+  margin-left: 6px;
+  color: rgba(0, 229, 255, 0.8);
+  text-shadow: none;
+}
+
+.impact-note {
+  font-family:
+    "Share Tech Mono", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+  font-size: 13px;
+  line-height: 1.7;
+  color: rgba(225, 250, 255, 0.92);
+  margin-top: 8px;
+}
+
+.impact-disclaimer {
+  font-family:
+    "Share Tech Mono", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+  font-size: 10px;
+  color: rgba(160, 200, 210, 0.6);
+  margin-top: 8px;
+}
+
+/* ------------------------------------------------------------
+   土木PR: 点検図鑑コレクション
+   ------------------------------------------------------------ */
+.codex-box {
+  width: 360px;
+  box-sizing: border-box;
+  margin-top: 16px;
+  padding: 14px 18px 12px 18px;
+  border: 1px solid rgba(0, 255, 102, 0.3);
+  border-radius: 6px;
+  background: rgba(0, 255, 102, 0.04);
+}
+
+.codex-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family:
+    "Share Tech Mono", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+  font-size: 14px;
+  color: #00ff66;
+  letter-spacing: 1px;
+  border-bottom: 1px solid rgba(0, 255, 102, 0.25);
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+}
+
+.codex-progress {
+  font-size: 12px;
+  color: #ffcc00;
+}
+
+.codex-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.codex-cell {
+  position: relative;
+  padding: 9px 4px 7px 4px;
+  border: 1px solid rgba(120, 140, 130, 0.3);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  text-align: center;
+  font-family:
+    "Share Tech Mono", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+  transition: all 0.25s ease;
+}
+
+/* 未発見はグレーアウトしてコレクション欲を出す */
+.codex-cell .codex-icon {
+  font-size: 22px;
+  line-height: 1.2;
+  color: rgba(140, 150, 145, 0.5);
+}
+
+.codex-cell .codex-name {
+  font-size: 12px;
+  margin-top: 2px;
+  color: rgba(150, 160, 155, 0.6);
+}
+
+.codex-cell .codex-count {
+  font-size: 10px;
+  margin-top: 2px;
+  color: rgba(130, 140, 135, 0.5);
+}
+
+/* 発見済み */
+.codex-cell.found {
+  border-color: rgba(0, 255, 102, 0.5);
+  background: rgba(0, 255, 102, 0.07);
+  box-shadow: 0 0 10px rgba(0, 255, 102, 0.12);
+}
+
+.codex-cell.found .codex-icon {
+  color: #00ff66;
+  text-shadow: 0 0 10px rgba(0, 255, 102, 0.7);
+}
+
+.codex-cell.found .codex-name {
+  color: #ffffff;
+}
+
+.codex-cell.found .codex-count {
+  color: rgba(0, 255, 102, 0.75);
+}
+
+/* 今回のプレイで見つけたものは金色で強調 */
+.codex-cell.fresh {
+  border-color: rgba(255, 204, 0, 0.7);
+  background: rgba(255, 204, 0, 0.09);
+  box-shadow: 0 0 14px rgba(255, 204, 0, 0.25);
+  animation: codexPop 0.45s ease-out;
+}
+
+.codex-cell.fresh .codex-icon {
+  color: #ffd700;
+  text-shadow: 0 0 12px rgba(255, 215, 0, 0.8);
+}
+
+.codex-new {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #ffcc00;
+  color: #0c0a05;
+  font-family: "Orbitron", sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  box-shadow: 0 0 8px rgba(255, 204, 0, 0.7);
+}
+
+@keyframes codexPop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.codex-hint {
+  font-family:
+    "Share Tech Mono", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+  font-size: 11px;
+  line-height: 1.6;
+  color: rgba(200, 235, 215, 0.8);
+  margin-top: 10px;
+  text-align: center;
+}
+
+.codex-hint.complete {
+  color: #ffd700;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+}
+
+/* ゲームオーバー画面でも点検成果を伝える */
+.gameover-salvage {
+  font-family:
+    "Share Tech Mono", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #00e5ff;
+  text-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+  max-width: 440px;
+  margin: 0 0 6px 0;
+}
+
+/* ============================================================
+   ゲームパッド対応まわり
+   ============================================================ */
+.cyan-text {
+  color: #00e5ff;
+  text-shadow: 0 0 5px rgba(0, 229, 255, 0.5);
+}
+
+/* パッド接続時のみJSで表示する */
+.pad-instructions {
+  display: none;
+  font-family:
+    "Share Tech Mono", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(0, 229, 255, 0.9);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  border-radius: 4px;
+  background: rgba(0, 229, 255, 0.06);
+  padding: 10px 16px;
+  margin: 14px 0 0 0;
+}
+
+.pad-instructions p {
+  margin: 5px 0;
+}
+
+.pad-title {
+  font-family: "Orbitron", sans-serif;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #00e5ff;
+  text-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
+}
+
+/* レティクルのターゲットロック演出 */
+.reticle {
+  transition: transform 0.15s ease;
+}
+
+.reticle.locked {
+  transform: translate(-50%, -50%) scale(1.08);
+  border-color: rgba(255, 204, 0, 0.5);
+}
+
+.reticle.locked .reticle-circle {
+  border-color: #ffcc00;
+  box-shadow: 0 0 16px rgba(255, 204, 0, 0.9);
+  animation: lockPulse 0.7s infinite alternate;
+}
+
+.reticle.locked .reticle-corner {
+  border-color: #ffcc00;
+  box-shadow: 0 0 10px rgba(255, 204, 0, 0.6);
+}
+
+.reticle.locked .reticle-hair-h,
+.reticle.locked .reticle-hair-v {
+  background: rgba(255, 204, 0, 0.7);
+}
+
+@keyframes lockPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.18);
+  }
+}
+
+/* 画面が狭いときはレポートを1カラムに折り返す */
+@media (max-width: 980px) {
+  .clear-columns {
+    gap: 18px;
+  }
+  #clearScreen .clear-content {
+    padding: 20px 28px;
+  }
 }
