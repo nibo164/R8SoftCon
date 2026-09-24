@@ -2885,6 +2885,54 @@ function animateCount(el, to, duration = 1200) {
   requestAnimationFrame(step);
 }
 
+// 図鑑のアイコン：ゲーム内と同じドット絵を、コンクリートの上に描いた 32x32 の画像
+//   未発見のものは黒いシルエットにする（何がいるのか気になるように）
+const codexIconCache = {};
+function codexIconURL(type, found) {
+  const key = type + (found ? "" : "?");
+  if (codexIconCache[key]) return codexIconCache[key];
+
+  const c = makeCanvas(TEX, TEX);
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  if (found) {
+    const bg = g.createImageData(TEX, TEX);
+    bg.data.set(zoneTextures[0]);
+    g.putImageData(bg, 0, 0);
+  } else {
+    g.fillStyle = "#0c1018";
+    g.fillRect(0, 0, TEX, TEX);
+  }
+
+  let art;
+  if (type === "corrosion") art = pixelsToCanvas(createCorrosion(0).img);
+  else if (type === "crack") art = pixelsToCanvas(createCrack(0).img);
+  else if (type === "rebar") art = pixelsToCanvas(createRebar(0).img);
+  else if (type === "leak") art = leakFrames[0][LIGHT_LEVELS];
+  else if (type === "sediment") art = createSedimentSprite()[LIGHT_LEVELS];
+  else art = createRootsSprite()[LIGHT_LEVELS];
+
+  if (!found) {
+    // シルエット：ドット絵の形だけを暗い色でぬりつぶす
+    const sil = makeCanvas(art.width, art.height);
+    const sg = sil.getContext("2d");
+    sg.drawImage(art, 0, 0);
+    sg.globalCompositeOperation = "source-in";
+    sg.fillStyle = "#2a3242";
+    sg.fillRect(0, 0, art.width, art.height);
+    art = sil;
+  }
+
+  // 縦横比を保って中央に置く（大きいものだけ縮める）
+  const s = Math.min(1, (TEX - 4) / art.width, (TEX - 4) / art.height);
+  const w = Math.round(art.width * s);
+  const h = Math.round(art.height * s);
+  g.drawImage(art, Math.floor((TEX - w) / 2), Math.floor((TEX - h) / 2), w, h);
+
+  codexIconCache[key] = c.toDataURL();
+  return codexIconCache[key];
+}
+
 // 点検図鑑グリッドの描画
 function renderCodex() {
   const grid = document.getElementById("codexGrid");
@@ -2904,7 +2952,10 @@ function renderCodex() {
 
     const icon = document.createElement("div");
     icon.className = "codex-icon";
-    icon.innerText = found ? info.icon : "？";
+    const iconImg = document.createElement("img");
+    iconImg.src = codexIconURL(key, found);
+    iconImg.alt = found ? info.short : "？";
+    icon.appendChild(iconImg);
     cell.appendChild(icon);
 
     const name = document.createElement("div");
@@ -3445,6 +3496,20 @@ function animate() {
 
 // リサイズ対応（縦横比が変わったら画面バッファを作り直す）
 window.addEventListener("resize", setupScreen);
+
+// タイトル画面のドローン（ゲーム内と同じドット絵。2コマを切り替えてローターを回す）
+(function setupTitleDrone() {
+  const img = document.getElementById("titleDrone");
+  if (!img) return;
+  const urls = droneFrames.map((c) => c.toDataURL());
+  let f = 0;
+  img.src = urls[0];
+  setInterval(() => {
+    if (isGameStarted) return; // タイトルが見えているときだけ回す
+    f = (f + 1) % urls.length;
+    img.src = urls[f];
+  }, 70);
+})();
 
 // ゲーム開始
 animate();
