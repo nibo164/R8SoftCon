@@ -59,7 +59,12 @@ const AudioSys = {
     this.ctx = new AC();
     this.master = this.ctx.createGain();
     this.master.gain.value = this.muted ? 0 : 0.5;
-    this.master.connect(this.ctx.destination);
+    // スローモーション中に音をこもらせるフィルター（ふだんは素通し）
+    this.muffle = this.ctx.createBiquadFilter();
+    this.muffle.type = "lowpass";
+    this.muffle.frequency.value = 20000;
+    this.master.connect(this.muffle);
+    this.muffle.connect(this.ctx.destination);
 
     // ドローンのプロペラ音（近い周波数の2つの波でうなりを作る）
     this.droneGain = this.ctx.createGain();
@@ -195,6 +200,27 @@ Object.assign(AudioSys, {
   playBreak() {
     this.noise(0.18, 2600, 0.25);
     this.tone(400, 120, 0.15, "square", 0.12);
+  },
+  // スローモーション中は音をこもらせる
+  setMuffle(on) {
+    if (!this.muffle) return;
+    const t = this.ctx.currentTime;
+    this.muffle.frequency.cancelScheduledValues(t);
+    this.muffle.frequency.setValueAtTime(this.muffle.frequency.value, t);
+    this.muffle.frequency.exponentialRampToValueAtTime(on ? 700 : 20000, t + 0.15);
+  },
+  // QTE 開始（時間がゆっくりになる「ヒュウン」）
+  playQteStart() {
+    this.tone(900, 180, 0.35, "sine", 0.18);
+  },
+  // 撮影成功（シャッター音）。PERFECT は高い音を重ねる
+  playShutter(perfect) {
+    this.noise(0.05, 5000, 0.35);
+    this.tone(perfect ? 1760 : 1320, perfect ? 2640 : 1320, perfect ? 0.25 : 0.12, "square", 0.12, 0.04);
+  },
+  // QTE 失敗
+  playQteMiss() {
+    this.tone(220, 110, 0.3, "square", 0.18);
   },
   // 墜落
   playExplode() {
@@ -920,28 +946,77 @@ function createRebar(z) {
   return makeDecal(z, 3.6, img);
 }
 
-// ランダム配置（奥へ進むほど密度が上がる難易度カーブ付き）
-const objectCount = 80;
-for (let i = 0; i < objectCount; i++) {
-  // pow(rand, 0.75) で奥側（大きいz）に偏らせて配置
-  const z = -(50 + Math.pow(Math.random(), 0.75) * (pipeLength - 150));
-  const rand = Math.random();
+// ============================================================
+// 配置
+//   QTE の対象（点検ポイント）：9個。近づくとスローモーションになり、
+//     ピント合わせのタイミング押しで点検する。6種類を最低1回ずつ出す
+//   避けるだけの障害物：QTE の地点の前後には置かない（スロー中・直後に来ると理不尽なので）
+// ============================================================
+const QTE_COUNT = 9;
+const Z_PER_METER = 10; // Z座標10単位 = 1メートル（ゲーム状態の zToMeterRatio と同じ値）
+const DODGE_COUNT = 18;
+const MANHOLE_METERS = [75, 150, 225]; // マンホール（チェックポイント）の位置[m]
+const qteTargets = []; // QTE の対象（手前から順）
 
-  if (rand < 0.17) {
-    registerObject(hazards, createLeak(z), "leak");
-  } else if (rand < 0.34) {
-    registerObject(hazards, createSediment(z), "sediment");
-  } else if (rand < 0.46) {
-    registerObject(hazards, createRoots(z), "roots");
-  } else if (rand < 0.65) {
-    registerObject(anomalies, createCorrosion(z), "corrosion");
-  } else if (rand < 0.84) {
-    registerObject(anomalies, createCrack(z), "crack");
-  } else {
-    registerObject(anomalies, createRebar(z), "rebar");
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function createByType(type, z) {
+  switch (type) {
+    case "leak":
+      return createLeak(z);
+    case "sediment":
+      return createSediment(z);
+    case "roots":
+      return createRoots(z);
+    case "corrosion":
+      return createCorrosion(z);
+    case "crack":
+      return createCrack(z);
+    default:
+      return createRebar(z);
   }
 }
-const totalInspectable = hazards.length + anomalies.length;
+const HAZARD_TYPES = ["leak", "sediment", "roots"];
+
+(function placeObjects() {
+  // QTE の対象：30m〜280m にほぼ等間隔（少しずらす）。チェックポイントとは重ねない
+  const types = shuffle(CODEX_ORDER.slice().concat([pick(CODEX_ORDER), pick(CODEX_ORDER), pick(CODEX_ORDER)]));
+  const qteMeters = [];
+  for (let i = 0; i < QTE_COUNT; i++) {
+    let m = 30 + (i * 250) / (QTE_COUNT - 1) + (Math.random() - 0.5) * 8;
+    // チェックポイントに近ければ、今いる側へ押し出す（次の点検ポイントに近づきすぎないように）
+    MANHOLE_METERS.forEach((mh) => {
+      if (Math.abs(m - mh) < 7) m = m < mh ? mh - 7 : mh + 7;
+    });
+    qteMeters.push(m);
+    const type = types[i];
+    const obj = createByType(type, -m * Z_PER_METER);
+    obj.qte = true;
+    registerObject(HAZARD_TYPES.includes(type) ? hazards : anomalies, obj, type);
+    qteTargets.push(obj);
+  }
+
+  // 避けるだけの障害物：QTE の地点の前 12m・後ろ 6m と、チェックポイントの近くは避ける
+  let placed = 0;
+  let tries = 0;
+  while (placed < DODGE_COUNT && tries < 500) {
+    tries++;
+    const m = 15 + Math.random() * 275;
+    if (qteMeters.some((q) => m > q - 12 && m < q + 6)) continue;
+    if (MANHOLE_METERS.some((mh) => Math.abs(m - mh) < 4)) continue;
+    const type = pick(HAZARD_TYPES);
+    const obj = createByType(type, -m * Z_PER_METER);
+    obj.qte = false;
+    registerObject(hazards, obj, type);
+    placed++;
+  }
+})();
 
 // ============================================================
 // マンホール整備ポイント（実際の下水道と同様に一定間隔で設置）
@@ -1311,19 +1386,20 @@ const FX = {
     this.cracks.push({ pts: pts, age: 0 });
   },
 
-  update(dt, speedFactor) {
+  // dt: 実時間（文字・フラッシュなど画面の演出） / wdt: ゲーム内の時間（破片・スピード線。スロー中は遅くなる）
+  update(dt, speedFactor, wdt = dt) {
     // 破片
     for (let i = this.parts.length - 1; i >= 0; i--) {
       const p = this.parts[i];
-      p.life -= dt;
+      p.life -= wdt;
       if (p.life <= 0) {
         this.parts.splice(i, 1);
         continue;
       }
-      p.vy -= p.grav * dt;
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.z += p.vz * dt;
+      p.vy -= p.grav * wdt;
+      p.x += p.vx * wdt;
+      p.y += p.vy * wdt;
+      p.z += p.vz * wdt;
     }
     this.rings = this.rings.filter((r) => (r.age += dt) < 0.4);
     this.pops = this.pops.filter((p) => (p.age += dt) < 0.9);
@@ -1340,7 +1416,7 @@ const FX = {
     if (this.lines.length > want) this.lines.length = want;
     const maxR = Math.hypot(SCREEN_W, SCREEN_H) / 2;
     this.lines.forEach((l) => {
-      l.r += dt * (160 + 320 * speedFactor) * (l.r / 80);
+      l.r += wdt * (160 + 320 * speedFactor) * (l.r / 80);
       if (l.r > maxR) {
         l.ang = Math.random() * TAU;
         l.r = 45 + Math.random() * 30;
@@ -1894,6 +1970,120 @@ function pixelLine(x0, y0, x1, y1) {
   }
 }
 
+// ------------------------------------------------------------
+// 点検 QTE の表示：ピントの枠と縮む輪・映画の黒帯・周りを暗く・判定の文字
+// 近づいてくる点検ポイントには黄色い「!」を出して、避けるだけの障害物と見分ける
+// ------------------------------------------------------------
+let ditherPattern = null;
+function getDitherPattern() {
+  if (!ditherPattern) {
+    const c = makeCanvas(2, 2);
+    const g = c.getContext("2d");
+    g.fillStyle = "#000";
+    g.fillRect(0, 0, 1, 1);
+    g.fillRect(1, 1, 1, 1);
+    ditherPattern = ctx.createPattern(c, "repeat");
+  }
+  return ditherPattern;
+}
+
+// ドットで描く円（dashed で点線）
+function pixelCircle(cx, cy, r, color, size = 1, dashed = false) {
+  const n = Math.max(12, Math.round(r * 6.3));
+  ctx.fillStyle = color;
+  for (let j = 0; j < n; j++) {
+    if (dashed && j % 3 === 0) continue;
+    const a = (j / n) * TAU;
+    ctx.fillRect(Math.round(cx + Math.cos(a) * r - size / 2), Math.round(cy + Math.sin(a) * r - size / 2), size, size);
+  }
+}
+
+function renderQte(now) {
+  const W = SCREEN_W;
+  const H = SCREEN_H;
+
+  // 近づいてくる点検ポイントの「!」マーク
+  if (isGameStarted && !isGameOver && countdown <= 0) {
+    qteTargets.forEach((o) => {
+      if (o.qteStarted) return;
+      const p = qteTargetPos(o);
+      const q = project(p.x, p.y, p.z);
+      if (!q || q.dz > 170) return;
+      const scale = q.dz < 90 ? 2 : 1;
+      const bounce = Math.round(Math.abs(Math.sin(now * 0.008)) * 3);
+      const top = o.kind === "decal" ? 0 : (o.h * q.s) / 2;
+      if (Math.floor(now / 150) % 4 !== 0) {
+        drawText("!", q.x, q.y - top - 9 * scale - bounce, scale, "#ffe14d");
+      }
+    });
+  }
+
+  const k = slowAmount();
+  if (k <= 0.01) return;
+
+  // 対象の画面上の位置（輪が画面からはみ出さないようにおさえる）
+  let cx = W / 2;
+  let cy = H / 2;
+  if (qte) {
+    const p = qteTargetPos(qte.obj);
+    const q = project(p.x, p.y, p.z);
+    if (q) {
+      cx = q.x;
+      cy = q.y;
+    }
+  }
+  const m = QTE_RING_START + 6;
+  cx = Math.max(m, Math.min(W - m, cx));
+  cy = Math.max(m + 12, Math.min(H - m - 12, cy));
+
+  // 周りを網目で暗くする（対象のまわりの四角はあけておく）
+  const x0 = Math.round(cx - m);
+  const x1 = Math.round(cx + m);
+  const y0 = Math.round(cy - m);
+  const y1 = Math.round(cy + m);
+  ctx.save();
+  ctx.globalAlpha = k;
+  ctx.fillStyle = getDitherPattern();
+  ctx.fillRect(0, 0, W, y0);
+  ctx.fillRect(0, y1, W, H - y1);
+  ctx.fillRect(0, y0, x0, y1 - y0);
+  ctx.fillRect(x1, y0, W - x1, y1 - y0);
+  ctx.restore();
+
+  // 映画のような黒帯
+  const bar = Math.round(16 * k);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, bar);
+  ctx.fillRect(0, H - bar, W, bar);
+
+  if (!qte) return;
+
+  if (!qte.result) {
+    // ピントの枠（白い点線の円と四隅）
+    pixelCircle(cx, cy, QTE_RING_TARGET, "#ffffff", 1, true);
+    const b = QTE_RING_TARGET + 5;
+    drawBracket(cx - b, cy - b, cx + b, cy + b, "#ffffff");
+    // 縮んでいく輪（ぴったりに近いほど緑になる）
+    const err = Math.abs(qte.t - qte.perfectAt);
+    const col = err <= QTE_PERFECT ? "#6dff7a" : err <= QTE_GOOD ? "#ffe14d" : "#ff9a3c";
+    pixelCircle(cx, cy, qteRingRadius(qte), col, 2);
+    drawText(QTE_LABELS[qte.obj.type] || "", cx, cy - QTE_RING_START - 11, 1, "#ffffff");
+    // 操作の案内は下の黒帯に（上の黒帯はポーズボタンと重なるので使わない）
+    if (bar >= 12) {
+      if (Math.floor(now / 200) % 2 === 0) {
+        drawText(`PRESS ${Pad.connected ? "A" : "SPACE"}`, W / 2, H - 12, 1, "#ffffff");
+      }
+    }
+  } else {
+    // 判定の文字
+    const res = qte.result;
+    const rise = Math.min(1, qte.resultT / 0.25);
+    const col =
+      res === "PERFECT" ? rainbowShift(Math.floor(now / 70)) : res === "GOOD" ? "#ffe14d" : "#ff4d6d";
+    drawText(res === "MISS" ? "MISS..." : `${res}!`, cx, cy - 6 - rise * 10, 2, col);
+  }
+}
+
 function renderOverlay(now) {
   const W = SCREEN_W;
   const H = SCREEN_H;
@@ -1905,6 +2095,9 @@ function renderOverlay(now) {
     const s = Math.sin(l.ang);
     pixelLine(W / 2 + c * l.r, H / 2 + s * l.r, W / 2 + c * (l.r + l.len), H / 2 + s * (l.r + l.len));
   });
+
+  // 点検 QTE（「!」マーク・ピント合わせ・黒帯）
+  if (cityStart < 0) renderQte(now);
 
   // 大雨警報中：画面の上下に赤と青の警告灯
   if (sirenTime > 0) {
@@ -2182,7 +2375,7 @@ const COMBO_MAX_MULT = 5;
 // カメラの傾き（ドローンの機体挙動演出）は描画セクションの camRoll / camPitch を使う
 
 // 演出・進行の状態
-let anomalyFound = 0; // 見つけた壁の異常の数（発見率・ランクはこれで決める）
+let anomalyFound = 0; // 点検に成功した壁の異常の数（ランクは QTE の成功数 qteSuccess で決める）
 let hitStop = 0; // >0 のあいだ時間を止める（当たった瞬間の強調）
 let countdown = 0; // >0 のあいだはスタート前のカウントダウン
 let goalAnim = -1; // >=0 のときゴール演出中（経過秒）
@@ -2241,6 +2434,10 @@ window.addEventListener("keydown", (e) => {
       decidePauseSel();
       return;
     }
+  }
+  // スペース / Enter で点検 QTE のタイミング押し
+  if ((e.key === " " || e.key === "Enter") && isGameStarted && !isGameOver && !isPaused) {
+    if (qtePress()) e.preventDefault();
   }
   // ESCキーで一時停止トグル
   if (e.key === "Escape" && isGameStarted && !isGameOver) {
@@ -2377,10 +2574,8 @@ const Pad = {
       else if (aPressed) decidePauseSel();
     } else {
       if (startPressed) togglePause();
-      // 画面中央（レティクル位置）に向けてスキャン
-      if (aPressed || r2Pressed) {
-        if (!tryScan(0, 0)) AudioSys.playMiss();
-      }
+      // 点検 QTE のタイミング押し
+      if (aPressed || r2Pressed) qtePress();
     }
 
     // 次フレームのエッジ検出用に押下状態を保存
@@ -2503,6 +2698,10 @@ function resetGame() {
   hurtBlink = 0;
   droneVisible = true;
   setHudVisible(true);
+  cancelQte();
+  qteSuccess = 0;
+  qtePerfect = 0;
+  qteTargets.forEach((o) => (o.qteStarted = false));
 
   updatePauseBtn();
   blurActiveButton();
@@ -2655,111 +2854,190 @@ function updateComboUI() {
 }
 
 // ============================================================
-// 点検判定（画面上の1点に映っているものを調べる）
-//   壁の異常：管の描画時に記録した idBuf / depthBuf を見る
-//   障害物　：直前のフレームで描いたスプライトの範囲に入っているか
+// 点検 QTE（ピント合わせ）
+//   点検ポイントが近づくとスローモーションになり、縮んでいく輪が
+//   ピントの枠に重なった瞬間にボタンを押して「撮影」する。
+//     PERFECT / GOOD：撮影成功 → 点検成功（障害物はその場で取りのぞく）
+//     MISS          ：壁の異常は見逃し、障害物はぶつかってダメージ
+//   操作：スペース / Enter / クリック / ゲームパッド A・R2
 // ============================================================
-const SCAN_RANGE = 140; // これ以上遠い異常はスキャンできない
+const QTE_TRIGGER_DIST = 36; // ドローンからこの距離まで近づいたら始まる
+const QTE_SLOW = 0.08; // スロー中の時間の進み（8%）
+const QTE_RING_START = 40; // 縮む輪の最初の半径（画面のドット）
+const QTE_RING_TARGET = 12; // ピントの枠の半径
+const QTE_PERFECT = 0.08; // ぴったりの瞬間からのずれ（秒）がこれ以内なら PERFECT
+const QTE_GOOD = 0.22; // これ以内なら GOOD
+const QTE_RESULT_HOLD = 0.45; // 判定を見せる時間（秒）
+const QTE_LABELS = {
+  corrosion: "CORROSION",
+  crack: "CRACK",
+  rebar: "REBAR",
+  leak: "LEAK",
+  sediment: "SEDIMENT",
+  roots: "ROOTS",
+};
 
-// 指定した正規化デバイス座標(NDC)に映っている点検対象を返す（なければ null）
-function pickTarget(ndcX, ndcY) {
-  const sx = ((ndcX + 1) / 2) * SCREEN_W;
-  const sy = ((1 - ndcY) / 2) * SCREEN_H;
-  let best = null;
-  let bestDist = SCAN_RANGE;
+let qte = null; // 実行中の QTE（なければ null）
+let timeScale = 1; // ゲーム内の時間の進み（スロー中は小さくなる）
+let qteSuccess = 0; // 点検に成功した回数
+let qtePerfect = 0; // そのうち PERFECT の回数
 
-  // 壁の異常（デカール）
-  const ix = Math.floor(sx);
-  const iy = Math.floor(sy);
-  if (ix >= 0 && iy >= 0 && ix < SCREEN_W && iy < SCREEN_H) {
-    const i = iy * SCREEN_W + ix;
-    const id = idBuf[i];
-    if (id > 0) {
-      const o = frameDecals[id - 1];
-      if (o && o.active && depthBuf[i] <= bestDist) {
-        best = o;
-        bestDist = depthBuf[i];
-      }
-    }
+// 対象の点検位置（壁の異常は壁の上、障害物は本体の中心）
+function qteTargetPos(o) {
+  if (o.kind === "decal") {
+    return {
+      x: Math.cos(o.ang) * (pipeRadius - 0.3),
+      y: Math.sin(o.ang) * (pipeRadius - 0.3),
+      z: o.z,
+    };
   }
-
-  // 障害物（スプライト）：画面の傾きを戻した座標で比べる
-  const cr = Math.cos(camRoll);
-  const sr = Math.sin(camRoll);
-  const ox = sx - SCREEN_W / 2;
-  const oy = sy - SCREEN_H / 2;
-  const ux = ox * cr + oy * sr + SCREEN_W / 2;
-  const uy = -ox * sr + oy * cr + SCREEN_H / 2;
-  frameSprites.forEach((s) => {
-    if (!s.obj.active || s.dz > bestDist) return;
-    if (ux >= s.x0 && ux <= s.x1 && uy >= s.y0 && uy <= s.y1) {
-      best = s.obj;
-      bestDist = s.dz;
-    }
-  });
-
-  return best;
+  return { x: o.x, y: o.y, z: o.z };
 }
 
-// 指定した正規化デバイス座標(NDC)に向けてスキャンを試みる。
-// マウスクリックとゲームパッド（画面中央固定）の両方から呼ばれる。
-function tryScan(ndcX, ndcY) {
-  if (!isGameStarted || isPaused || isGameOver || countdown > 0) return false;
+function startQte(obj) {
+  const perfectAt = 1.0 + Math.random() * 0.3; // 毎回少しタイミングを変える
+  const shrinkSpeed = (QTE_RING_START - QTE_RING_TARGET) / perfectAt;
+  qte = {
+    obj: obj,
+    t: 0,
+    perfectAt: perfectAt,
+    dur: perfectAt + QTE_RING_TARGET / shrinkSpeed, // 輪が消えるまで
+    result: null,
+    resultT: 0,
+  };
+  obj.qteStarted = true;
+  AudioSys.playQteStart();
+  AudioSys.setMuffle(true);
+}
 
-  const target = pickTarget(ndcX, ndcY);
-  if (!target) return false;
+// 縮む輪の今の半径
+function qteRingRadius(q) {
+  const speed = (QTE_RING_START - QTE_RING_TARGET) / q.perfectAt;
+  return Math.max(0, QTE_RING_START - speed * q.t);
+}
 
-  // コンボ判定：一定時間以内の連続発見で倍率アップ
-  const now = performance.now();
-  combo = now < comboExpire ? combo + 1 : 1;
-  comboExpire = now + COMBO_WINDOW;
+// ボタンが押されたとき（QTE 中でなければ何もしない）
+function qtePress() {
+  if (!qte || qte.result || isPaused || isGameOver) return false;
+  const err = Math.abs(qte.t - qte.perfectAt);
+  resolveQte(err <= QTE_PERFECT ? "PERFECT" : err <= QTE_GOOD ? "GOOD" : "MISS");
+  return true;
+}
+
+function resolveQte(result) {
+  const o = qte.obj;
+  qte.result = result;
+  qte.resultT = 0;
+  o.active = false;
+  o.counted = true;
+  const p = qteTargetPos(o);
+  const sp = project(p.x, p.y, p.z);
+
+  if (result === "MISS") {
+    combo = 0;
+    updateComboUI();
+    missedCount++;
+    AudioSys.playQteMiss();
+    if (o.kind === "decal") {
+      addLog(`SCAN MISS: ${o.type.toUpperCase()}`, "warning");
+      showInfoCard("ピントが合わなかった…", "", "", 1400);
+    } else {
+      // 障害物を取りのぞけず、ぶつかる
+      hp -= 15;
+      collidedCount++;
+      o.visible = false;
+      shakeIntensity = 0.9;
+      hurtBlink = 0.7;
+      AudioSys.playDamage();
+      FX.flash("255,40,40", 0.55);
+      FX.crack();
+      FX.burst(cam.x, cam.y, cam.z - 1, HAZARD_COLORS[o.type], 30, 10, 0.9);
+      addLog(`SYS DANGER: ${o.type.toUpperCase()} COLLISION (-15%)`, "danger");
+    }
+    updateUI();
+    return;
+  }
+
+  // 撮影成功
+  const perfect = result === "PERFECT";
+  combo++;
   maxCombo = Math.max(maxCombo, combo);
   const mult = Math.min(combo, COMBO_MAX_MULT);
-  const gained = 100 * mult;
-
+  const gained = (perfect ? 300 : 150) * mult;
   score += gained;
   inspectedCount++;
-  target.active = false;
-  target.counted = true;
-  recordCodex(target.type);
-  AudioSys.playScan(mult);
+  qteSuccess++;
+  if (perfect) qtePerfect++;
+  recordCodex(o.type);
   updateComboUI();
+  AudioSys.playShutter(perfect);
+  FX.flash("255,255,255", perfect ? 0.85 : 0.55); // カメラのフラッシュ
 
-  // ---- 演出：ヒットストップ・フラッシュ・広がる輪・飛び出す数字・破片 ----
-  hitStop = 0.05 + mult * 0.01;
-  FX.flash("255,255,255", 0.25 + mult * 0.05);
-  const popColor = mult >= 5 ? "#ff9a3c" : mult >= 3 ? "#ffe14d" : "#ffffff";
-  let sp = null; // 対象の画面上の位置
-  if (target.kind === "decal") {
+  if (o.kind === "decal") {
     // 壁の異常：水色の枠で囲み、壁から光の粒をはじけさせる
     anomalyFound++;
-    target.helper = true;
-    const wx = Math.cos(target.ang) * (pipeRadius - 0.3);
-    const wy = Math.sin(target.ang) * (pipeRadius - 0.3);
-    FX.burst(wx, wy, target.z, ["#00e5ff", "#ffffff", "#ffe14d"], 18 + mult * 4, 8, 0.7);
-    sp = project(wx, wy, target.z);
+    o.helper = true;
+    FX.burst(p.x, p.y, p.z, ["#00e5ff", "#ffffff", "#ffe14d"], 24 + mult * 4, 8, 0.7);
   } else {
-    // 障害物：点検して取りのぞく（砕けて消える。当たり判定もなくなる）
-    target.visible = false;
-    FX.burst(target.x, target.y, target.z, HAZARD_COLORS[target.type], 36, 12, 0.9);
+    // 障害物：取りのぞく（砕けて消える）
+    o.visible = false;
+    FX.burst(p.x, p.y, p.z, HAZARD_COLORS[o.type], 40, 12, 0.9);
     AudioSys.playBreak();
-    sp = project(target.x, target.y, target.z);
   }
   if (sp) {
-    FX.ring(sp.x, sp.y, "#00e5ff");
-    FX.pop(sp.x, sp.y, `+${gained}`, popColor);
+    FX.ring(sp.x, sp.y, perfect ? "#ffe14d" : "#00e5ff");
+    FX.pop(sp.x, sp.y + 16, `+${gained}`, perfect ? "#ffe14d" : "#ffffff");
   }
 
   // 短い通知（詳しい解説は結果画面の図鑑で読める）
-  const info = ANOMALY_INFO[target.type];
-  if (info) {
-    showInfoCard(`${target.kind === "decal" ? "発見！" : "除去！"} ${info.name}`, "");
-  }
+  const info = ANOMALY_INFO[o.type];
+  if (info) showInfoCard(`${o.kind === "decal" ? "撮影成功！" : "除去！"} ${info.name}`, "");
   addLog(
-    `SCAN OK: ${target.type.toUpperCase()} (+${gained}${mult > 1 ? ` / COMBO x${mult}` : ""})`,
+    `SCAN ${result}: ${o.type.toUpperCase()} (+${gained}${mult > 1 ? ` / COMBO x${mult}` : ""})`,
   );
   updateUI();
-  return true;
+}
+
+// QTE を途中で打ち切る（墜落・ゴール・リセット時）
+function cancelQte() {
+  qte = null;
+  timeScale = 1;
+  AudioSys.setMuffle(false);
+}
+
+// 毎フレーム（実時間 dt）：開始判定・時間切れ・スローの出入り
+function updateQte(dt) {
+  if (!qte) {
+    const next = qteTargets.find(
+      (o) => !o.qteStarted && o.z < cam.z && cam.z - o.z <= QTE_TRIGGER_DIST,
+    );
+    if (next) startQte(next);
+  }
+
+  let targetScale = 1;
+  if (qte) {
+    qte.t += dt;
+    if (!qte.result) {
+      targetScale = QTE_SLOW;
+      if (qte.t >= qte.dur) resolveQte("MISS"); // 押さなかった
+    } else {
+      qte.resultT += dt;
+      targetScale = qte.resultT < QTE_RESULT_HOLD * 0.5 ? QTE_SLOW : 1;
+      if (qte.resultT >= QTE_RESULT_HOLD) {
+        qte = null;
+        AudioSys.setMuffle(false);
+      }
+    }
+  }
+  // スローへはすばやく入り、戻るときは少し時間をかける
+  const k = targetScale < timeScale ? 1 - Math.pow(1e-6, dt) : 1 - Math.pow(0.01, dt);
+  timeScale += (targetScale - timeScale) * k;
+  if (Math.abs(timeScale - targetScale) < 0.002) timeScale = targetScale;
+}
+
+// スロー演出の強さ（0〜1）
+function slowAmount() {
+  return Math.max(0, Math.min(1, (1 - timeScale) / (1 - QTE_SLOW)));
 }
 
 window.addEventListener("click", (event) => {
@@ -2768,11 +3046,7 @@ window.addEventListener("click", (event) => {
   // （ボタン内の文字を押した場合もあるので closest で調べる）
   if (event.target.closest("button") || event.target.closest(".hud-panel"))
     return;
-
-  tryScan(
-    (event.clientX / window.innerWidth) * 2 - 1,
-    -(event.clientY / window.innerHeight) * 2 + 1,
-  );
+  qtePress();
 });
 
 // UI更新
@@ -2790,7 +3064,7 @@ function updateUI() {
   hpBarEl.style.width = `${safeHp}%`;
 
   scoreEl.innerText = score;
-  inspectedEl.innerText = `${anomalyFound} / ${anomalies.length}`;
+  inspectedEl.innerText = `${qteSuccess} / ${QTE_COUNT}`;
 
   const progress = Math.min(100, (distance / goalDistance) * 100);
   distBarEl.style.width = `${progress}%`;
@@ -2811,12 +3085,12 @@ function updateUI() {
 
 // ============================================================
 // 点検レポート（クリア時）：発見率から技師ランクを認定
-//   発見率 = 見つけた壁の異常 / 壁の異常の総数（障害物は分母に入れない）
+//   成功率 = 点検 QTE の成功数 / 点検ポイントの数（9か所）
 //   しきい値はゲーム内の目安。実際に遊んで調整する
 // ============================================================
 const RANKS = [
   {
-    min: 0.7,
+    min: 0.85,
     rank: "S",
     cls: "rank-S",
     title: "マスター点検技師",
@@ -2824,14 +3098,14 @@ const RANKS = [
       "パーフェクトに近い点検！きみは未来のまちのインフラを守るエースだ！",
   },
   {
-    min: 0.5,
+    min: 0.65,
     rank: "A",
     cls: "rank-A",
     title: "一人前の点検技師",
     comment: "すばらしい点検技術！本物の点検技師も顔負けだ！",
   },
   {
-    min: 0.3,
+    min: 0.4,
     rank: "B",
     cls: "rank-B",
     title: "見習い点検技師",
@@ -2851,7 +3125,7 @@ const RANKS = [
 // 異常を1件見つけるごとに、その先の暮らしを守れたものとして換算する。
 // ※実データではなくゲーム内の目安。画面にも注記を出している。
 // ============================================================
-const HOUSEHOLDS_PER_FIND = 8;
+const HOUSEHOLDS_PER_FIND = 40; // 点検ポイントが9か所に減ったので、1か所あたりの目安を大きくした
 
 // 世帯数を実感しやすい身近なスケールに言い換える
 function householdComment(n) {
@@ -2999,7 +3273,7 @@ function renderCodex() {
 function showClearScreen() {
   updatePauseBtn();
   resultShown = true;
-  const rate = anomalies.length > 0 ? anomalyFound / anomalies.length : 0;
+  const rate = qteSuccess / QTE_COUNT;
   const r = RANKS.find((x) => rate >= x.min);
 
   const badge = document.getElementById("rankBadge");
@@ -3009,8 +3283,8 @@ function showClearScreen() {
   document.getElementById("rankComment").innerText = r.comment;
 
   document.getElementById("finalFound").innerText =
-    `${anomalyFound} / ${anomalies.length} 件`;
-  document.getElementById("finalMissed").innerText = `${missedCount} 件`;
+    `${qteSuccess} / ${QTE_COUNT} 回（PERFECT ${qtePerfect}）`;
+  document.getElementById("finalMissed").innerText = `${missedCount} 回`;
   document.getElementById("finalRate").innerText = `${Math.round(rate * 100)}%`;
   document.getElementById("finalCombo").innerText = `×${Math.max(1, maxCombo)}`;
   document.getElementById("finalScore").innerText = score;
@@ -3041,38 +3315,8 @@ function showClearScreen() {
   }
 }
 
-// ============================================================
-// レティクルのターゲットロック表示
-// 画面中央に点検対象を捉えているとレティクルが黄色く光る。
-// ゲームパッド操作では照準が中央固定になるため、これが唯一の狙いの手がかりになる。
-// ============================================================
-const reticleEl = document.querySelector(".reticle");
-let lockedTarget = null;
-let lockCheckAccum = 0;
-
-function updateTargetLock(delta) {
-  // 約20回/秒に間引く
-  lockCheckAccum += delta;
-  if (lockCheckAccum < 0.05) return;
-  lockCheckAccum = 0;
-
-  const found = pickTarget(0, 0);
-  if (found !== lockedTarget) {
-    lockedTarget = found;
-    if (reticleEl) reticleEl.classList.toggle("locked", !!found);
-  }
-}
-
-// 通過済みオブジェクトの見逃し判定
-// 見逃しに数えるのは壁の異常だけ（障害物は上手に避ければOK）
-function checkPassedObjects() {
-  hazards.concat(anomalies).forEach((o) => {
-    if (!o.counted && o.z > cam.z + 6) {
-      o.counted = true;
-      if (o.active && o.kind === "decal") missedCount++;
-    }
-  });
-}
+// ※ 照準で狙う方式は QTE に置き換えたので、レティクルと見逃し判定はなくした。
+//    見逃し（missedCount）は QTE の MISS で数える
 
 // ドローン（1x1x1の箱）と障害物の箱が重なっているか
 function hitsBox(b) {
@@ -3128,7 +3372,7 @@ function startGoal() {
   goalAnim = 0;
   updatePauseBtn();
   Music.stop();
-  if (reticleEl) reticleEl.classList.remove("locked");
+  cancelQte();
 }
 
 function updateGoal(dt) {
@@ -3160,6 +3404,7 @@ function crashDrone() {
   isGameOver = true;
   updatePauseBtn();
   Music.stop();
+  cancelQte();
   AudioSys.setDrone(false);
   AudioSys.playExplode();
   FX.burst(cam.x, cam.y, cam.z, ["#ffd84a", "#ff7a33", "#ff3344", "#ffffff", "#555a60"], 70, 16, 1.2);
@@ -3180,10 +3425,10 @@ function showGameOverScreen() {
   // 墜落しても、それまでの点検成果は無駄ではないことを伝える（土木PR）
   const salvageEl = document.getElementById("failSalvage");
   if (salvageEl) {
-    const households = anomalyFound * HOUSEHOLDS_PER_FIND;
+    const households = inspectedCount * HOUSEHOLDS_PER_FIND;
     salvageEl.innerText =
-      anomalyFound > 0
-        ? `でも、ここまでに見つけた ${anomalyFound} 件の異常のおかげで、およそ ${households} 世帯の暮らしを守れたよ。`
+      inspectedCount > 0
+        ? `でも、ここまでに点検した ${inspectedCount} か所のおかげで、およそ ${households} 世帯の暮らしを守れたよ。`
         : "異常を1件でも見つけられれば、その先の暮らしを守ることができる。次はきっと見つかる！";
   }
 
@@ -3232,9 +3477,9 @@ function animate() {
 
   // 経過秒（フレームレートが変わっても同じ速さで進むように、移動量はすべてこれを掛ける）
   const nowTime = performance.now();
-  const dt = Math.min(0.05, (nowTime - lastFrameTime) / 1000);
+  let dt = Math.min(0.05, (nowTime - lastFrameTime) / 1000);
   lastFrameTime = nowTime;
-  const f60 = dt * 60; // 60fps 換算で何フレーム分か
+  let f60 = dt * 60; // 60fps 換算で何フレーム分か
 
   // ゲームパッドはタイトル・ポーズ・リザルト画面でも操作できるよう常にポーリングする
   Pad.poll();
@@ -3289,6 +3534,13 @@ function animate() {
     return;
   }
 
+  // 点検 QTE（開始判定・判定・スローモーションの出入り）は実時間で進める。
+  // ここから下の dt / f60 は「ゲーム内の時間」で、スロー中はゆっくり進む
+  updateQte(dt);
+  const realDt = dt;
+  dt *= timeScale;
+  f60 = dt * 60;
+
   // 進行処理（奥へ進むほど少しずつ加速する。増水中は流れに押されてさらに速い）
   const speedPerFrame = baseSpeed + (distance / goalDistance) * 0.6;
   const speed = speedPerFrame * 60 * (1 + floodK * 0.25); // 1秒あたり
@@ -3296,8 +3548,8 @@ function animate() {
   distance = Math.abs(cam.z) / zToMeterRatio;
   speedFactor = Math.min(1, (speed / 60 - baseSpeed) / 0.8 + 0.25);
 
-  // スピードに応じて視野を広げる（ワープ感）
-  focal = BASE_FOCAL * (1 - 0.16 * speedFactor);
+  // スピードに応じて視野を広げる（ワープ感）。スロー中は少しズームして対象に寄る
+  focal = BASE_FOCAL * (1 - 0.16 * speedFactor) * (1 + 0.2 * slowAmount());
 
   // ゴール判定
   if (distance >= goalDistance) {
@@ -3338,9 +3590,6 @@ function animate() {
   const v2 = speed * speed;
   cam.x -= curv.x * v2 * 0.08 * dt;
   cam.y -= curv.y * v2 * 0.08 * dt;
-
-  // レティクルのターゲットロック判定
-  updateTargetLock(dt);
 
   // 移動方向とカーブに応じて機体とカメラを傾ける（ロール・ピッチ演出）
   const lerp = 1 - Math.pow(1 - 0.08, f60);
@@ -3455,16 +3704,8 @@ function animate() {
     }
   });
 
-  // 見逃し（スキャンせず通過）のカウント
-  checkPassedObjects();
-
-  // コンボの時間切れ判定
-  if (combo > 0 && performance.now() > comboExpire) {
-    combo = 0;
-    updateComboUI();
-  }
-
-  FX.update(dt, speedFactor);
+  // コンボは QTE の連続成功で数える（MISS か衝突で切れる。時間切れはない）
+  FX.update(realDt, speedFactor * timeScale, dt);
 
   // 墜落判定
   if (hp <= 0) {
