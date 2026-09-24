@@ -2,7 +2,7 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <title>Drone Inspection Game</title>
+    <title>Drone Inspection Game (Pixel)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -10,6 +10,49 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
+    <style>
+      /* ドット絵版：低解像度キャンバスをにじませずに拡大する */
+      #gameCanvas {
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+      .pixel-edition {
+        color: #ffcc33;
+        letter-spacing: 0.3em;
+      }
+      /* 通知カード：テンポを止めないよう、画面上部に小さく短く出す */
+      #infoCard {
+        top: 72px;
+        bottom: auto;
+        width: auto;
+        min-width: 260px;
+        max-width: 60vw;
+        padding: 8px 16px;
+        text-align: center;
+      }
+      #infoCard .info-title {
+        margin-bottom: 0;
+      }
+      #infoCard .info-desc {
+        margin-top: 4px;
+        font-size: 13px;
+      }
+      /* コンボはキャンバス上にドット文字で描くので、HTML の表示は使わない */
+      #comboDisplay {
+        display: none;
+      }
+      /* 結果画面の豆知識 */
+      .result-trivia {
+        margin-top: 10px;
+        padding: 8px 12px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #fff3c0;
+        border: 1px dashed rgba(255, 204, 0, 0.4);
+        border-radius: 4px;
+        text-align: left;
+      }
+    </style>
   </head>
   <body>
     <div id="hud">
@@ -89,6 +132,7 @@
     <div id="startScreen">
       <div class="start-content">
         <h1>DRAIN DIVE</h1>
+        <p class="subtitle pixel-edition">- PIXEL EDITION -</p>
         <p class="subtitle">SYSTEMS READY</p>
         <div class="jp-intro">
           <p>きみは「下水道点検ドローン」のパイロット！</p>
@@ -199,6 +243,8 @@
               </div>
             </div>
 
+            <div class="result-trivia" id="resultTrivia"></div>
+
             <div class="codex-box">
               <div class="codex-header">
                 <span>点検図鑑</span>
@@ -246,7 +292,6 @@
 
     <canvas id="gameCanvas"></canvas>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="script.js"></script>
+    <script src="pixel.js"></script>
   </body>
 </html>
