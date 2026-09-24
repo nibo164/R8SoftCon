@@ -921,6 +921,74 @@
       .pixel-ui .reticle {
         display: none;
       }
+      /* ---------------- 難易度の選択（タイトル画面） ---------------- */
+      .pixel-ui .diff-select {
+        margin: 4px 0 6px 0;
+      }
+      .pixel-ui .diff-title {
+        font-family: var(--px-head);
+        font-size: 10px;
+        color: var(--px-cyan);
+        margin: 0 0 12px 0;
+      }
+      .pixel-ui .diff-hint {
+        font-family: var(--px-jp);
+        font-size: 12px;
+        color: #8a94a6;
+        margin-left: 10px;
+      }
+      .pixel-ui .diff-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 18px;
+      }
+      .pixel-ui .diff-btn {
+        --f: #3a4458;
+        font-family: var(--px-head);
+        font-size: 11px;
+        line-height: 1.3;
+        color: var(--px-white);
+        background: #0c1018;
+        border: none;
+        border-radius: 0;
+        padding: 10px 12px 8px 12px;
+        width: 128px;
+        cursor: pointer;
+        box-shadow:
+          0 -3px 0 0 var(--f),
+          0 3px 0 0 var(--f),
+          -3px 0 0 0 var(--f),
+          3px 0 0 0 var(--f),
+          3px 6px 0 0 var(--px-shadow);
+      }
+      .pixel-ui .diff-jp {
+        display: block;
+        font-family: var(--px-jp);
+        font-size: 13px;
+        margin-top: 5px;
+      }
+      .pixel-ui .diff-btn.selected {
+        --f: var(--px-dark);
+        color: var(--px-dark);
+        transform: translateY(-2px);
+      }
+      .pixel-ui #diff-easy.selected {
+        background: var(--px-green);
+      }
+      .pixel-ui #diff-normal.selected {
+        background: var(--px-yellow);
+      }
+      .pixel-ui #diff-hard.selected {
+        background: var(--px-red);
+      }
+      .pixel-ui .diff-note {
+        font-family: var(--px-jp);
+        font-size: 13px;
+        color: var(--px-white);
+        margin: 14px 0 0 0;
+        min-height: 1.4em;
+      }
+
       @keyframes pxLogDanger {
         0%,
         100% {
@@ -949,6 +1017,10 @@
             <div id="hpBar" class="bar-fill red-bar" style="width: 100%"></div>
           </div>
           <span id="hp" class="value">100%</span>
+        </div>
+        <div class="hud-item">
+          <span class="label">MODE:</span>
+          <span id="modeLabel" class="value yellow-text">NORMAL</span>
         </div>
         <div class="hud-item" id="padStatusItem" style="display: none">
           <span class="label">INPUT DEVICE:</span>
@@ -1047,6 +1119,24 @@
             輪が重なった瞬間に A で撮影！
           </p>
         </div>
+        <!-- 難易度の選択（←→ / 十字キーで選ぶ。クリックするとそのまま発進） -->
+        <div class="diff-select">
+          <p class="diff-title">
+            SELECT MODE<span class="diff-hint">← → でえらぶ</span>
+          </p>
+          <div class="diff-buttons">
+            <button id="diff-easy" class="diff-btn">
+              EASY<span class="diff-jp">かんたん</span>
+            </button>
+            <button id="diff-normal" class="diff-btn selected">
+              NORMAL<span class="diff-jp">ふつう</span>
+            </button>
+            <button id="diff-hard" class="diff-btn">
+              HARD<span class="diff-jp">むずかしい</span>
+            </button>
+          </div>
+          <p class="diff-note" id="diffNote"></p>
+        </div>
         <div class="instructions">
           <p class="blink-text" id="startPrompt">
             PRESS [SPACE] TO LAUNCH DRONE
@@ -1085,7 +1175,7 @@
     <div id="clearScreen" style="display: none">
       <div class="clear-content">
         <h2>MISSION ACCOMPLISHED</h2>
-        <p class="subtitle">点検完了レポート (300m)</p>
+        <p class="subtitle" id="clearSubtitle">点検完了レポート（300m）</p>
 
         <div class="clear-columns">
           <!-- 左カラム: 成績 -->
