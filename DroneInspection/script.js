@@ -700,6 +700,7 @@ function startGame() {
   AudioSys.init();
   AudioSys.resume();
   AudioSys.setDrone(true);
+  updatePauseBtn();
   addLog("DRONE LAUNCHED: INSPECTION START");
   const startScreen = document.getElementById("startScreen");
   if (startScreen) {
@@ -715,6 +716,21 @@ window.addEventListener("keydown", (e) => {
   // スペースキーで起動
   if (e.key === " " && !isGameStarted && !isGameOver) {
     startGame();
+  }
+  // 一時停止中のメニュー操作（↑↓ / W・S で選び、Enter / スペースで決定）
+  if (isPaused && !isGameOver) {
+    const k = normalizeKey(e);
+    if (k === "ArrowUp" || k === "w") {
+      e.preventDefault();
+      setPauseSel(pauseSel - 1);
+    } else if (k === "ArrowDown" || k === "s") {
+      e.preventDefault();
+      setPauseSel(pauseSel + 1);
+    } else if (k === "Enter" || k === " ") {
+      e.preventDefault();
+      decidePauseSel();
+      return;
+    }
   }
   // ESCキーで一時停止トグル
   if (e.key === "Escape" && isGameStarted && !isGameOver) {
@@ -736,11 +752,13 @@ window.addEventListener("keyup", (e) => (keys[normalizeKey(e)] = false));
 //   A(0) / R2(7)            : 点検スキャン（画面中央のレティクルで狙う）
 //   START(9)                : 一時停止
 //   A(0)                    : スタート・リスタート
+//   一時停止中              : 上下で選択、A で決定、START / B(1) ですぐ再開
 // ============================================================
 const Pad = {
   connected: false,
   index: null,
   prevButtons: [],
+  prevMenuDir: 0, // 一時停止メニューの上下入力（押した瞬間だけ反応させる）
   axisX: 0,
   axisY: 0,
   DEADZONE: 0.22,
@@ -824,6 +842,11 @@ const Pad = {
     const aPressed = this.pressed(pad, 0);
     const r2Pressed = this.pressed(pad, 7);
     const startPressed = this.pressed(pad, 9);
+    const bPressed = this.pressed(pad, 1);
+    // メニュー用の上下（-1: 上 / 1: 下）。スティックは大きく倒したときだけ
+    const menuDir = ay < -0.5 ? -1 : ay > 0.5 ? 1 : 0;
+    const menuMoved = menuDir !== 0 && menuDir !== this.prevMenuDir;
+    this.prevMenuDir = menuDir;
 
     if (aPressed || r2Pressed) {
       AudioSys.init();
@@ -837,8 +860,10 @@ const Pad = {
       // クリア／ゲームオーバー画面：Aボタンでタイトルへ戻る
       if (aPressed) resetGame();
     } else if (isPaused) {
-      // 一時停止中：A または START で再開
-      if (aPressed || startPressed) togglePause();
+      // 一時停止中：上下で選んで A で決定。START / B はすぐ再開
+      if (menuMoved) setPauseSel(pauseSel + menuDir);
+      if (startPressed || bPressed) togglePause();
+      else if (aPressed) decidePauseSel();
     } else {
       if (startPressed) togglePause();
       // 画面中央（レティクル位置）に向けてスキャン
@@ -859,10 +884,55 @@ window.addEventListener("gamepaddisconnected", () => {
   Pad.index = null;
 });
 
+// ============================================================
+// 一時停止メニュー
+//   0: つづける / 1: やめてタイトルへもどる
+//   マウス・キーボード（↑↓＋Enter）・ゲームパッド（上下＋A）で選べる
+// ============================================================
+const pauseBtnEl = document.getElementById("pauseBtn");
+const pauseMenuBtns = [
+  document.getElementById("resumeBtn"),
+  document.getElementById("restartBtn"),
+];
+let pauseSel = 0;
+let pausedAt = 0; // 一時停止した時刻（止めている間にコンボが切れないようにする）
+
+function setPauseSel(i) {
+  const n = pauseMenuBtns.length;
+  pauseSel = (i + n) % n;
+  pauseMenuBtns.forEach((b, k) => b.classList.toggle("selected", k === pauseSel));
+}
+
+function decidePauseSel() {
+  if (pauseSel === 0) togglePause();
+  else resetGame();
+}
+
+// プレイ中だけ画面上のポーズボタンを出す
+function updatePauseBtn() {
+  if (!pauseBtnEl) return;
+  pauseBtnEl.style.display = isGameStarted && !isGameOver ? "block" : "none";
+}
+
+// ボタンに残ったフォーカスを外す（あとでスペースキーを押したときに
+// フォーカスの残ったボタンが勝手に押されるのを防ぐ）
+function blurActiveButton() {
+  const el = document.activeElement;
+  if (el && el.tagName === "BUTTON") el.blur();
+}
+
 // 一時停止切り替え
 function togglePause() {
   isPaused = !isPaused;
   AudioSys.setDrone(!isPaused && isGameStarted && !isGameOver);
+  blurActiveButton();
+  if (isPaused) {
+    pausedAt = performance.now();
+    setPauseSel(0); // 開いたときは「つづける」を選んでおく
+  } else if (comboExpire > 0) {
+    // 止めていた時間のぶんだけコンボの制限時間をのばす
+    comboExpire += performance.now() - pausedAt;
+  }
   const pauseScreen = document.getElementById("pauseScreen");
   if (pauseScreen) {
     if (isPaused) {
@@ -896,6 +966,8 @@ function resetGame() {
   camRoll = 0;
   camPitch = 0;
   AudioSys.setDrone(false);
+  updatePauseBtn();
+  blurActiveButton();
 
   // 今回のプレイぶんの図鑑記録だけリセット（累計 codexSession は保持する）
   CODEX_ORDER.forEach((k) => (codexRun[k] = 0));
@@ -973,6 +1045,15 @@ document.getElementById("clearBackBtn").addEventListener("click", () => {
 });
 document.getElementById("gameOverBackBtn").addEventListener("click", () => {
   resetGame();
+});
+// プレイ中のポーズボタン
+pauseBtnEl.addEventListener("click", () => {
+  if (isGameStarted && !isGameOver && !isPaused) togglePause();
+  blurActiveButton();
+});
+// マウスを乗せたボタンを選択中にする（キー操作の選択と表示をそろえる）
+pauseMenuBtns.forEach((b, i) => {
+  b.addEventListener("mouseenter", () => setPauseSel(i));
 });
 
 // システムログ出力関数
@@ -1109,7 +1190,8 @@ function tryScan(ndcX, ndcY) {
 window.addEventListener("click", (event) => {
   if (!isGameStarted || isPaused || isGameOver) return;
   // ボタンやHUDパネル内のクリックは除外
-  if (event.target.tagName === "BUTTON" || event.target.closest(".hud-panel"))
+  // （ボタン内の文字を押した場合もあるので closest で調べる）
+  if (event.target.closest("button") || event.target.closest(".hud-panel"))
     return;
 
   tryScan(
@@ -1287,6 +1369,7 @@ function renderCodex() {
 }
 
 function showClearScreen() {
+  updatePauseBtn();
   const rate = totalInspectable > 0 ? inspectedCount / totalInspectable : 0;
   const r = RANKS.find((x) => rate >= x.min);
 
@@ -1523,6 +1606,7 @@ function animate() {
     isGameOver = true;
     AudioSys.setDrone(false);
     AudioSys.playGameOver();
+    updatePauseBtn();
 
     // 最終リザルトをゲームオーバー画面に設定
     document.getElementById("failDistance").innerText =
