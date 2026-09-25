@@ -917,10 +917,263 @@
           opacity: 1;
         }
       }
+      /* ---------------- 点検図鑑（タイトル画面から開く） ---------------- */
+      .pixel-ui .start-content {
+        position: relative;
+      }
+      .pixel-ui .codex-open-btn {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        font-family: var(--px-head);
+        font-size: 10px;
+        line-height: 1.3;
+        color: var(--px-dark);
+        background: var(--px-cyan);
+        border: none;
+        border-radius: 0;
+        padding: 8px 10px 6px 10px;
+        cursor: pointer;
+        box-shadow:
+          0 -3px 0 0 var(--px-dark),
+          0 3px 0 0 var(--px-dark),
+          -3px 0 0 0 var(--px-dark),
+          3px 0 0 0 var(--px-dark),
+          3px 6px 0 0 var(--px-shadow),
+          inset -3px -3px 0 0 rgba(0, 0, 0, 0.2),
+          inset 3px 3px 0 0 rgba(255, 255, 255, 0.4);
+      }
+      .pixel-ui .codex-open-btn:hover {
+        background: #b3efff;
+        transform: translateY(-2px);
+      }
+      .pixel-ui .codex-open-jp {
+        display: block;
+        font-family: var(--px-jp);
+        font-size: 12px;
+        margin-top: 4px;
+      }
+      .pixel-ui #codexScreen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 25; /* タイトル画面より上 */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        color: var(--px-white);
+        background-color: rgba(4, 6, 10, 0.7);
+        background-image: repeating-conic-gradient(rgba(0, 0, 0, 0.55) 0 25%, transparent 0 50%);
+        background-size: 4px 4px;
+        font-family: var(--px-jp);
+        opacity: 0;
+        transition: opacity 0.3s steps(3);
+      }
+      .pixel-ui .codex-screen-content {
+        --f: var(--px-cyan);
+        background: var(--px-panel);
+        padding: 22px 36px 20px 36px;
+        border: none;
+        box-shadow:
+          0 -4px 0 0 var(--f),
+          0 4px 0 0 var(--f),
+          -4px 0 0 0 var(--f),
+          4px 0 0 0 var(--f),
+          8px 4px 0 0 var(--px-shadow),
+          4px 8px 0 0 var(--px-shadow);
+      }
+      .pixel-ui .codex-screen-content h2 {
+        font-family: var(--px-head);
+        font-weight: 400;
+        font-size: 22px;
+        letter-spacing: 2px;
+        color: var(--px-cyan);
+        text-shadow: 3px 3px 0 #0d4a5c;
+        margin: 0 0 8px 0;
+      }
+      .pixel-ui .codex-screen-content .subtitle {
+        font-family: var(--px-jp);
+        font-size: 15px;
+        color: var(--px-white);
+        margin-bottom: 18px;
+      }
+      .pixel-ui .codex-screen-body {
+        display: flex;
+        gap: 30px;
+        align-items: stretch;
+        text-align: left;
+      }
+      .pixel-ui .codex-screen-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 104px);
+        grid-auto-rows: 104px;
+        gap: 14px;
+        padding: 4px;
+      }
+      .pixel-ui .codex-screen-grid .codex-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: default;
+      }
+      .pixel-ui .codex-screen-grid .codex-icon img {
+        width: 56px;
+        height: 56px;
+      }
+      .pixel-ui .codex-screen-grid .codex-name {
+        font-size: 14px;
+        margin-top: 4px;
+      }
+      .pixel-ui .codex-screen-grid .codex-cell.selected {
+        --f: var(--px-yellow);
+        transform: translateY(-3px);
+        background: rgba(255, 225, 77, 0.1);
+      }
+      .pixel-ui .codex-detail {
+        --f: #3a4458;
+        width: 320px;
+        box-sizing: border-box;
+        padding: 16px 18px;
+        background: var(--px-dark);
+        box-shadow:
+          0 -4px 0 0 var(--f),
+          0 4px 0 0 var(--f),
+          -4px 0 0 0 var(--f),
+          4px 0 0 0 var(--f);
+      }
+      .pixel-ui .codex-detail.found {
+        --f: var(--px-green);
+      }
+      .pixel-ui .codex-detail-img {
+        display: block;
+        width: 96px;
+        height: 96px;
+        image-rendering: pixelated;
+        margin: 0 auto 10px auto;
+      }
+      .pixel-ui .codex-detail-name {
+        font-size: 19px;
+        color: var(--px-yellow);
+        text-shadow: 2px 2px 0 var(--px-dark);
+        text-align: center;
+      }
+      .pixel-ui .codex-detail:not(.found) .codex-detail-name {
+        color: #8a94a6;
+      }
+      .pixel-ui .codex-detail-kind {
+        font-size: 12px;
+        color: var(--px-cyan);
+        text-align: center;
+        margin: 4px 0 10px 0;
+      }
+      .pixel-ui .codex-detail-desc {
+        font-size: 14px;
+        line-height: 1.8;
+        color: var(--px-white);
+        padding-top: 10px;
+        background: repeating-linear-gradient(90deg, #3a4458 0 2px, transparent 2px 6px) top / 100% 2px no-repeat;
+      }
+      .pixel-ui .codex-detail:not(.found) .codex-detail-desc {
+        color: #8a94a6;
+      }
+      .pixel-ui .codex-detail-count {
+        font-size: 12px;
+        color: var(--px-green);
+        margin-top: 10px;
+        text-align: right;
+      }
+      .pixel-ui .codex-screen-progress {
+        font-size: 14px;
+        color: var(--px-yellow);
+        margin: 18px 0 0 0;
+      }
+      .pixel-ui #codexScreen .menu-options {
+        margin-top: 16px;
+      }
+      .pixel-ui #codexScreen .help-text {
+        margin-top: 14px;
+      }
+
+      /* 体力はドローンを囲む円形のゲージ（キャンバスに描く）で見せるので、パネルの行は隠す */
+      .pixel-ui .hp-item {
+        display: none;
+      }
       /* 点検は QTE（ピント合わせ）になり、照準で狙う必要がないので照準は出さない */
       .pixel-ui .reticle {
         display: none;
       }
+      /* ---------------- 難易度の選択（タイトル画面） ---------------- */
+      .pixel-ui .diff-select {
+        margin: 4px 0 6px 0;
+      }
+      .pixel-ui .diff-title {
+        font-family: var(--px-head);
+        font-size: 10px;
+        color: var(--px-cyan);
+        margin: 0 0 12px 0;
+      }
+      .pixel-ui .diff-hint {
+        font-family: var(--px-jp);
+        font-size: 12px;
+        color: #8a94a6;
+        margin-left: 10px;
+      }
+      .pixel-ui .diff-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 18px;
+      }
+      .pixel-ui .diff-btn {
+        --f: #3a4458;
+        font-family: var(--px-head);
+        font-size: 11px;
+        line-height: 1.3;
+        color: var(--px-white);
+        background: #0c1018;
+        border: none;
+        border-radius: 0;
+        padding: 10px 12px 8px 12px;
+        width: 128px;
+        cursor: pointer;
+        box-shadow:
+          0 -3px 0 0 var(--f),
+          0 3px 0 0 var(--f),
+          -3px 0 0 0 var(--f),
+          3px 0 0 0 var(--f),
+          3px 6px 0 0 var(--px-shadow);
+      }
+      .pixel-ui .diff-jp {
+        display: block;
+        font-family: var(--px-jp);
+        font-size: 13px;
+        margin-top: 5px;
+      }
+      .pixel-ui .diff-btn.selected {
+        --f: var(--px-dark);
+        color: var(--px-dark);
+        transform: translateY(-2px);
+      }
+      .pixel-ui #diff-easy.selected {
+        background: var(--px-green);
+      }
+      .pixel-ui #diff-normal.selected {
+        background: var(--px-yellow);
+      }
+      .pixel-ui #diff-hard.selected {
+        background: var(--px-red);
+      }
+      .pixel-ui .diff-note {
+        font-family: var(--px-jp);
+        font-size: 13px;
+        color: var(--px-white);
+        margin: 14px 0 0 0;
+        min-height: 1.4em;
+      }
+
       @keyframes pxLogDanger {
         0%,
         100% {
@@ -943,12 +1196,17 @@
             >ONLINE</span
           >
         </div>
-        <div class="hud-item">
+        <!-- 体力はドローンを囲む円で表示するので、この行は隠す（数値の更新処理のため要素は残す） -->
+        <div class="hud-item hp-item">
           <span class="label">INTEGRITY:</span>
           <div class="bar-container">
             <div id="hpBar" class="bar-fill red-bar" style="width: 100%"></div>
           </div>
           <span id="hp" class="value">100%</span>
+        </div>
+        <div class="hud-item">
+          <span class="label">MODE:</span>
+          <span id="modeLabel" class="value yellow-text">NORMAL</span>
         </div>
         <div class="hud-item" id="padStatusItem" style="display: none">
           <span class="label">INPUT DEVICE:</span>
@@ -1009,6 +1267,10 @@
     <!-- スタート待機画面 -->
     <div id="startScreen">
       <div class="start-content">
+        <!-- 点検図鑑を開くボタン（C キー / ゲームパッド Y でも開く） -->
+        <button id="codexOpenBtn" class="codex-open-btn">
+          CODEX<span class="codex-open-jp">図鑑 [C]</span>
+        </button>
         <!-- ゲーム内と同じドローンのドット絵（pixel.js で描き込む） -->
         <img id="titleDrone" class="title-drone" alt="" />
         <h1>DRAIN DIVE</h1>
@@ -1047,11 +1309,56 @@
             輪が重なった瞬間に A で撮影！
           </p>
         </div>
+        <!-- 難易度の選択（←→ / 十字キーで選ぶ。クリックするとそのまま発進） -->
+        <div class="diff-select">
+          <p class="diff-title">
+            SELECT MODE<span class="diff-hint">← → でえらぶ</span>
+          </p>
+          <div class="diff-buttons">
+            <button id="diff-easy" class="diff-btn">
+              EASY<span class="diff-jp">かんたん</span>
+            </button>
+            <button id="diff-normal" class="diff-btn selected">
+              NORMAL<span class="diff-jp">ふつう</span>
+            </button>
+            <button id="diff-hard" class="diff-btn">
+              HARD<span class="diff-jp">むずかしい</span>
+            </button>
+          </div>
+          <p class="diff-note" id="diffNote"></p>
+        </div>
         <div class="instructions">
           <p class="blink-text" id="startPrompt">
             PRESS [SPACE] TO LAUNCH DRONE
           </p>
         </div>
+      </div>
+    </div>
+
+    <!-- 点検図鑑（タイトル画面から開く） -->
+    <div id="codexScreen" style="display: none">
+      <div class="codex-screen-content">
+        <h2>INSPECTION CODEX</h2>
+        <p class="subtitle">点検図鑑</p>
+        <div class="codex-screen-body">
+          <div class="codex-screen-grid" id="codexScreenGrid"></div>
+          <div class="codex-detail" id="codexDetail">
+            <img id="codexDetailImg" class="codex-detail-img" alt="" />
+            <div class="codex-detail-name" id="codexDetailName"></div>
+            <div class="codex-detail-kind" id="codexDetailKind"></div>
+            <div class="codex-detail-desc" id="codexDetailDesc"></div>
+            <div class="codex-detail-count" id="codexDetailCount"></div>
+          </div>
+        </div>
+        <p class="codex-screen-progress" id="codexScreenProgress"></p>
+        <div class="menu-options">
+          <button id="codexCloseBtn" class="menu-btn">
+            BACK<span class="menu-btn-jp">タイトルへもどる</span>
+          </button>
+        </div>
+        <p class="help-text">
+          [←][→][↑][↓] / 十字キーでえらぶ　[ESC] / [B] でもどる
+        </p>
       </div>
     </div>
 
@@ -1085,7 +1392,7 @@
     <div id="clearScreen" style="display: none">
       <div class="clear-content">
         <h2>MISSION ACCOMPLISHED</h2>
-        <p class="subtitle">点検完了レポート (300m)</p>
+        <p class="subtitle" id="clearSubtitle">点検完了レポート（300m）</p>
 
         <div class="clear-columns">
           <!-- 左カラム: 成績 -->

@@ -435,8 +435,10 @@ const CODEX_ORDER = [
 ];
 
 // 図鑑の発見記録
-//   codexSession: ページを開いてからの累計（連続プレイでコンプリートを狙わせる）
+//   codexSession: これまでの累計。ブラウザ（localStorage）に保存し、次に開いたときも残る
 //   codexRun:     今回のプレイでの発見数
+//   撮影用：URL に ?codex=all を付けると全種類を発見済みに、?codex=reset を付けると記録を消す
+const CODEX_STORAGE_KEY = "drainDive.codex.v1";
 const codexSession = {};
 const codexRun = {};
 CODEX_ORDER.forEach((k) => {
@@ -444,10 +446,47 @@ CODEX_ORDER.forEach((k) => {
   codexRun[k] = 0;
 });
 
+// 保存できない環境（プライベートモードなど）でもゲームは動くよう、失敗は無視する
+function loadCodex() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CODEX_STORAGE_KEY) || "{}");
+    CODEX_ORDER.forEach((k) => {
+      const n = Number(saved[k]);
+      if (Number.isFinite(n) && n > 0) codexSession[k] = Math.floor(n);
+    });
+  } catch (e) {
+    // 読めなければ空の図鑑から始める
+  }
+}
+function saveCodex() {
+  try {
+    localStorage.setItem(CODEX_STORAGE_KEY, JSON.stringify(codexSession));
+  } catch (e) {
+    // 保存できなくても、このページを開いている間の記録は残る
+  }
+}
+loadCodex();
+(function applyCodexParam() {
+  let mode = null;
+  try {
+    mode = new URLSearchParams(location.search).get("codex");
+  } catch (e) {
+    return;
+  }
+  if (mode === "all") {
+    CODEX_ORDER.forEach((k) => (codexSession[k] = Math.max(1, codexSession[k])));
+    saveCodex();
+  } else if (mode === "reset") {
+    CODEX_ORDER.forEach((k) => (codexSession[k] = 0));
+    saveCodex();
+  }
+})();
+
 function recordCodex(type) {
   if (!(type in codexSession)) return;
   codexSession[type]++;
   codexRun[type]++;
+  saveCodex();
 }
 
 // マンホール通過時に表示する土木豆知識
@@ -947,14 +986,79 @@ function createRebar(z) {
 }
 
 // ============================================================
-// 配置
-//   QTE の対象（点検ポイント）：9個。近づくとスローモーションになり、
+// 難易度（タイトル画面で選ぶ。数値だけを変えて、コースの形は同じ）
+//   qteCount     : 点検ポイントの数         dodgeCount : 避けるだけの障害物の数
+//   speedMul     : スピードの倍率           curveMul   : カーブの強さの倍率
+//   floodRise    : 増水で上がる水位         damageMul  : ダメージの倍率
+//   qteSlow      : スロー中の時間の進み     qtePerfect / qteGood : 判定の幅（秒）
+//   ringTime     : 輪がピントの枠に重なるまでの時間（秒）[最小, 最大]
+//   tutorial     : 1回目の QTE を練習にする（EASY のみ）
+// ============================================================
+const DIFFICULTIES = {
+  easy: {
+    key: "easy",
+    label: "EASY",
+    jp: "かんたん",
+    qteCount: 7,
+    dodgeCount: 10,
+    speedMul: 0.8,
+    curveMul: 0.6,
+    floodRise: 3.0,
+    damageMul: 0.7,
+    qteSlow: 0.05,
+    qtePerfect: 0.12,
+    qteGood: 0.32,
+    ringTime: [1.2, 1.5],
+    tutorial: true,
+  },
+  normal: {
+    key: "normal",
+    label: "NORMAL",
+    jp: "ふつう",
+    qteCount: 9,
+    dodgeCount: 18,
+    speedMul: 1.0,
+    curveMul: 1.0,
+    floodRise: 4.2,
+    damageMul: 1.0,
+    qteSlow: 0.08,
+    qtePerfect: 0.08,
+    qteGood: 0.22,
+    ringTime: [1.0, 1.3],
+    tutorial: false,
+  },
+  hard: {
+    key: "hard",
+    label: "HARD",
+    jp: "むずかしい",
+    qteCount: 12,
+    dodgeCount: 24,
+    speedMul: 1.2,
+    curveMul: 1.3,
+    floodRise: 5.5,
+    damageMul: 1.3,
+    qteSlow: 0.12,
+    qtePerfect: 0.06,
+    qteGood: 0.16,
+    ringTime: [0.8, 1.0],
+    tutorial: false,
+  },
+};
+const DIFFICULTY_ORDER = ["easy", "normal", "hard"];
+let diff = DIFFICULTIES.normal; // いま選ばれている難易度
+
+// ダメージに難易度の倍率を掛ける
+function dmg(v) {
+  return v * diff.damageMul;
+}
+
+// ============================================================
+// 配置（ゲームを始めるたびに、選んだ難易度で並べ直す）
+//   点検ポイント（QTE の対象）：近づくとスローモーションになり、
 //     ピント合わせのタイミング押しで点検する。6種類を最低1回ずつ出す
 //   避けるだけの障害物：QTE の地点の前後には置かない（スロー中・直後に来ると理不尽なので）
 // ============================================================
-const QTE_COUNT = 9;
 const Z_PER_METER = 10; // Z座標10単位 = 1メートル（ゲーム状態の zToMeterRatio と同じ値）
-const DODGE_COUNT = 18;
 const MANHOLE_METERS = [75, 150, 225]; // マンホール（チェックポイント）の位置[m]
 const qteTargets = []; // QTE の対象（手前から順）
 
@@ -984,12 +1088,19 @@ function createByType(type, z) {
 }
 const HAZARD_TYPES = ["leak", "sediment", "roots"];
 
-(function placeObjects() {
-  // QTE の対象：30m〜280m にほぼ等間隔（少しずらす）。チェックポイントとは重ねない
-  const types = shuffle(CODEX_ORDER.slice().concat([pick(CODEX_ORDER), pick(CODEX_ORDER), pick(CODEX_ORDER)]));
+function placeObjects(d) {
+  hazards.length = 0;
+  anomalies.length = 0;
+  qteTargets.length = 0;
+
+  // 点検ポイント：30m〜280m にほぼ等間隔（少しずらす）。チェックポイントとは重ねない
+  const n = d.qteCount;
+  const extra = [];
+  for (let i = CODEX_ORDER.length; i < n; i++) extra.push(pick(CODEX_ORDER));
+  const types = shuffle(CODEX_ORDER.slice(0, Math.min(n, CODEX_ORDER.length)).concat(extra));
   const qteMeters = [];
-  for (let i = 0; i < QTE_COUNT; i++) {
-    let m = 30 + (i * 250) / (QTE_COUNT - 1) + (Math.random() - 0.5) * 8;
+  for (let i = 0; i < n; i++) {
+    let m = 30 + (i * 250) / (n - 1) + (Math.random() - 0.5) * 6;
     // チェックポイントに近ければ、今いる側へ押し出す（次の点検ポイントに近づきすぎないように）
     MANHOLE_METERS.forEach((mh) => {
       if (Math.abs(m - mh) < 7) m = m < mh ? mh - 7 : mh + 7;
@@ -1002,13 +1113,13 @@ const HAZARD_TYPES = ["leak", "sediment", "roots"];
     qteTargets.push(obj);
   }
 
-  // 避けるだけの障害物：QTE の地点の前 12m・後ろ 6m と、チェックポイントの近くは避ける
+  // 避けるだけの障害物：QTE の地点の前 8m・後ろ 4m と、チェックポイントの近くは避ける
   let placed = 0;
   let tries = 0;
-  while (placed < DODGE_COUNT && tries < 500) {
+  while (placed < d.dodgeCount && tries < 2000) {
     tries++;
     const m = 15 + Math.random() * 275;
-    if (qteMeters.some((q) => m > q - 12 && m < q + 6)) continue;
+    if (qteMeters.some((q) => m > q - 8 && m < q + 4)) continue;
     if (MANHOLE_METERS.some((mh) => Math.abs(m - mh) < 4)) continue;
     const type = pick(HAZARD_TYPES);
     const obj = createByType(type, -m * Z_PER_METER);
@@ -1016,7 +1127,8 @@ const HAZARD_TYPES = ["leak", "sediment", "roots"];
     registerObject(hazards, obj, type);
     placed++;
   }
-})();
+}
+placeObjects(diff); // タイトル画面の背景用（開始時に選んだ難易度で並べ直す）
 
 // ============================================================
 // マンホール整備ポイント（実際の下水道と同様に一定間隔で設置）
@@ -1086,8 +1198,9 @@ function zoneIndexAt(wz) {
 function courseCenter(z, out) {
   const d = -z;
   const env = Math.min(1, Math.max(0, (d - 250) / 400));
-  out.x = env * (14 * Math.sin(d * 0.0105) + 6 * Math.sin(d * 0.0231 + 1.3));
-  out.y = env * (4 * Math.sin(d * 0.0083 + 0.7));
+  const k = env * diff.curveMul; // 難易度でカーブの強さを変える
+  out.x = k * (14 * Math.sin(d * 0.0105) + 6 * Math.sin(d * 0.0231 + 1.3));
+  out.y = k * (4 * Math.sin(d * 0.0083 + 0.7));
   return out;
 }
 // カーブのきつさ（中心線の2階微分）。遠心力の計算に使う
@@ -1106,7 +1219,7 @@ function courseCurvature(z) {
 // → 222mまで満水 → 236mまでに引いていく
 const FLOOD_WARN_AT = 160;
 const WATER_BASE = -pipeRadius + 0.55; // ふだんの水位（管の中心からの高さ）
-const FLOOD_RISE = 4.2; // 増水で上がる高さ
+// 増水で上がる高さは難易度ごとに決める（diff.floodRise）
 function floodAmountAt(dist) {
   let k = 0;
   if (dist < 170) k = 0;
@@ -1309,6 +1422,7 @@ let droneVisible = true; // 墜落したら false
 // ============================================================
 // 演出（パーティクル・フラッシュ・文字・スピード線など）
 // ============================================================
+const CRACK_TIME = 1.8; // 画面のヒビが消えるまでの時間（秒）
 const FX = {
   parts: [], // 破片・しぶき（ワールド座標）
   rings: [], // 点検したときの広がる輪（画面座標）
@@ -1368,22 +1482,60 @@ const FX = {
   showBanner(text, sub, color, dur = 1.6, scale = 4) {
     this.banner = { text, sub, color, dur, scale, age: 0 };
   },
-  // 画面の端から内側へ走るヒビ
+  // 画面のヒビ：ドローンのあたりの衝突点から、ガラスが割れたように放射状に広がる
+  //   主な割れ目（太さ2）が画面の端まで伸び、枝分かれと蜘蛛の巣状の割れ目（太さ1）をつなぐ
   crack() {
     const W = SCREEN_W;
     const H = SCREEN_H;
-    const side = randInt(0, 3);
-    let x = side === 0 ? 0 : side === 1 ? W - 1 : randInt(0, W - 1);
-    let y = side === 2 ? 0 : side === 3 ? H - 1 : randInt(0, H - 1);
-    const pts = [[x, y]];
-    let ang = Math.atan2(H / 2 - y, W / 2 - x);
-    for (let i = 0; i < 7; i++) {
-      ang += (Math.random() - 0.5) * 0.9;
-      x += Math.cos(ang) * randInt(6, 14);
-      y += Math.sin(ang) * randInt(6, 14);
-      pts.push([x, y]);
+    // 衝突点：ドローン（画面の中央やや下）のまわり
+    const cx = W / 2 + randInt(-50, 50);
+    const cy = H / 2 + 25 + randInt(-25, 12);
+    const lines = [];
+    const rays = [];
+    const nRay = randInt(7, 10);
+    const base = Math.random() * TAU;
+    for (let r = 0; r < nRay; r++) {
+      let ang = base + (r / nRay) * TAU + (Math.random() - 0.5) * 0.4;
+      let x = cx;
+      let y = cy;
+      const pts = [[x, y]];
+      for (let s = 0; s < 16; s++) {
+        ang += (Math.random() - 0.5) * 0.5;
+        const len = randInt(12, 22);
+        x += Math.cos(ang) * len;
+        y += Math.sin(ang) * len;
+        pts.push([x, y]);
+        // 枝分かれ
+        if (s >= 1 && Math.random() < 0.35) {
+          let bx = x;
+          let by = y;
+          let ba = ang + (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5);
+          const bpts = [[bx, by]];
+          for (let b = 0; b < randInt(2, 4); b++) {
+            ba += (Math.random() - 0.5) * 0.5;
+            bx += Math.cos(ba) * randInt(8, 14);
+            by += Math.sin(ba) * randInt(8, 14);
+            bpts.push([bx, by]);
+          }
+          lines.push({ pts: bpts, size: 1 });
+        }
+        if (x < -10 || x > W + 10 || y < -10 || y > H + 10) break;
+      }
+      rays.push(pts);
+      lines.push({ pts: pts, size: 2 });
     }
-    this.cracks.push({ pts: pts, age: 0 });
+    // 蜘蛛の巣状の割れ目：となりの割れ目どうしを、中心からの同じ段でつなぐ
+    [1, 2, 4].forEach((level) => {
+      for (let r = 0; r < nRay; r++) {
+        const a = rays[r][level];
+        const b = rays[(r + 1) % nRay][level];
+        if (!a || !b || Math.random() < 0.25) continue;
+        const mx = (a[0] + b[0]) / 2 + randInt(-4, 4);
+        const my = (a[1] + b[1]) / 2 + randInt(-4, 4);
+        lines.push({ pts: [a, [mx, my], b], size: 1 });
+      }
+    });
+    this.cracks.push({ lines: lines, cx: cx, cy: cy, age: 0 });
   },
 
   // dt: 実時間（文字・フラッシュなど画面の演出） / wdt: ゲーム内の時間（破片・スピード線。スロー中は遅くなる）
@@ -1403,7 +1555,7 @@ const FX = {
     }
     this.rings = this.rings.filter((r) => (r.age += dt) < 0.4);
     this.pops = this.pops.filter((p) => (p.age += dt) < 0.9);
-    this.cracks = this.cracks.filter((c) => (c.age += dt) < 1.4);
+    this.cracks = this.cracks.filter((c) => (c.age += dt) < CRACK_TIME);
     this.flashA = Math.max(0, this.flashA - dt * 3.5);
     this.comboPop = Math.max(0, this.comboPop - dt);
     if (this.banner && (this.banner.age += dt) > this.banner.dur) this.banner = null;
@@ -1936,6 +2088,9 @@ function renderWorld(now) {
     ctx.restore();
   }
 
+  // 体力ゲージ（ドローンを囲む円）
+  if (dp && droneVisible && isGameStarted && !isGameOver) drawHpRing(dp, now);
+
   drawParticles(0, CAM_BACK + 0.5);
 
   // 点検したときの広がる輪
@@ -1962,11 +2117,72 @@ function renderWorld(now) {
 // ============================================================
 // 描画：画面に重ねる演出（スピード線・コンボ・大きな文字・フラッシュなど）
 // ============================================================
-// ドット単位の直線
-function pixelLine(x0, y0, x1, y1) {
+// ------------------------------------------------------------
+// 体力ゲージ：ドローンを囲む 24 個に区切った輪
+//   残りの体力ぶんだけ色がつく（緑 → 黄 → 赤。少ないと点滅）。上から時計回りに減る
+//   ダメージの瞬間は白く光って揺れ、回復は緑に光る。変化したあとしばらく数値を出す
+// ------------------------------------------------------------
+const HP_SEGMENTS = 24;
+let hpLastSeen = 100;
+let hpHitUntil = 0; // この時刻まで「ダメージで白く光る」
+let hpHealUntil = 0; // この時刻まで「回復で緑に光る」
+let hpLabelUntil = 0; // この時刻まで数値を出す
+
+function drawHpRing(dp, now) {
+  // 体力の変化を見つけて演出のタイマーを入れる
+  if (hp < hpLastSeen - 0.05) {
+    if (hpLastSeen - hp > 2) hpHitUntil = now + 250; // 大きなダメージだけ光らせる（壁のこすりは光らせない）
+    hpLabelUntil = now + 1500;
+  } else if (hp > hpLastSeen + 0.05) {
+    hpHealUntil = now + 500;
+    hpLabelUntil = now + 1500;
+  }
+  hpLastSeen = hp;
+
+  const safeHp = Math.max(0, Math.min(100, hp));
+  const hit = now < hpHitUntil;
+  const heal = now < hpHealUntil;
+  const r = Math.max(14, Math.round(DRONE_W * dp.s * 0.62));
+  const jx = hit ? randInt(-1, 1) : 0;
+  const jy = hit ? randInt(-1, 1) : 0;
+  const cx = Math.round(dp.x) + jx;
+  const cy = Math.round(dp.y) + jy;
+
+  let color = safeHp > 50 ? "#6dff7a" : safeHp > 20 ? "#ffe14d" : "#ff4d6d";
+  if (safeHp <= 20 && Math.floor(now / 150) % 2 === 0) color = "#ff9aa9";
+  if (heal) color = "#b8ffc0";
+  if (hit) color = "#ffffff";
+
+  const filled = Math.ceil((safeHp / 100) * HP_SEGMENTS);
+  const seg = TAU / HP_SEGMENTS;
+  const gap = 0.07; // 区切りのすき間（ラジアン）
+  const step = 1 / r; // ドットの間隔（ラジアン）
+  for (let pass = 0; pass < 2; pass++) {
+    // 1回目：暗い影（明るい背景でも見えるように） / 2回目：本体
+    for (let j = 0; j < HP_SEGMENTS; j++) {
+      const on = j < filled;
+      if (pass === 0) ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+      else ctx.fillStyle = on ? color : "rgba(58, 68, 88, 0.85)";
+      const a0 = -Math.PI / 2 + j * seg + gap / 2;
+      const a1 = a0 + seg - gap;
+      for (let a = a0; a <= a1; a += step) {
+        const x = Math.round(cx + Math.cos(a) * r) - 1 + (pass === 0 ? 1 : 0);
+        const y = Math.round(cy + Math.sin(a) * r) - 1 + (pass === 0 ? 1 : 0);
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+  }
+
+  if (now < hpLabelUntil) {
+    drawText(`${Math.ceil(safeHp)}%`, cx, cy + r + 4, 1, hit ? "#ffffff" : color);
+  }
+}
+
+// ドット単位の直線（size でドットの大きさ＝線の太さ）
+function pixelLine(x0, y0, x1, y1, size = 1) {
   const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
   for (let k = 0; k <= n; k++) {
-    ctx.fillRect(Math.round(x0 + ((x1 - x0) * k) / n), Math.round(y0 + ((y1 - y0) * k) / n), 1, 1);
+    ctx.fillRect(Math.round(x0 + ((x1 - x0) * k) / n), Math.round(y0 + ((y1 - y0) * k) / n), size, size);
   }
 }
 
@@ -2065,9 +2281,14 @@ function renderQte(now) {
     drawBracket(cx - b, cy - b, cx + b, cy + b, "#ffffff");
     // 縮んでいく輪（ぴったりに近いほど緑になる）
     const err = Math.abs(qte.t - qte.perfectAt);
-    const col = err <= QTE_PERFECT ? "#6dff7a" : err <= QTE_GOOD ? "#ffe14d" : "#ff9a3c";
+    const col = err <= diff.qtePerfect ? "#6dff7a" : err <= diff.qteGood ? "#ffe14d" : "#ff9a3c";
     pixelCircle(cx, cy, qteRingRadius(qte), col, 2);
     drawText(QTE_LABELS[qte.obj.type] || "", cx, cy - QTE_RING_START - 11, 1, "#ffffff");
+    if (qte.tutorial) {
+      // チュートリアル：練習中であることと、押すタイミング（NOW!）を見せる
+      drawText("PRACTICE", cx, cy - QTE_RING_START - 21, 1, "#6dff7a");
+      if (err <= diff.qteGood) drawText("NOW!", cx, cy - 4, 1, "#6dff7a");
+    }
     // 操作の案内は下の黒帯に（上の黒帯はポーズボタンと重なるので使わない）
     if (bar >= 12) {
       if (Math.floor(now / 200) % 2 === 0) {
@@ -2079,8 +2300,15 @@ function renderQte(now) {
     const res = qte.result;
     const rise = Math.min(1, qte.resultT / 0.25);
     const col =
-      res === "PERFECT" ? rainbowShift(Math.floor(now / 70)) : res === "GOOD" ? "#ffe14d" : "#ff4d6d";
-    drawText(res === "MISS" ? "MISS..." : `${res}!`, cx, cy - 6 - rise * 10, 2, col);
+      res === "PERFECT"
+        ? rainbowShift(Math.floor(now / 70))
+        : res === "GOOD"
+          ? "#ffe14d"
+          : res === "RETRY"
+            ? "#ff9a3c"
+            : "#ff4d6d";
+    const text = res === "MISS" ? "MISS..." : res === "RETRY" ? "TRY AGAIN" : `${res}!`;
+    drawText(text, cx, cy - 6 - rise * 10, 2, col);
   }
 }
 
@@ -2165,13 +2393,26 @@ function renderOverlay(now) {
     }
   }
 
-  // 衝突で入った画面のヒビ
+  // 衝突で入った画面のヒビ（しばらくはっきり見せ、最後はチカチカしながら消える）
   FX.cracks.forEach((c) => {
-    const a = Math.max(0, 1 - c.age / 1.4);
-    ctx.fillStyle = `rgba(230, 245, 255, ${a})`;
-    for (let k = 1; k < c.pts.length; k++) {
-      pixelLine(c.pts[k - 1][0], c.pts[k - 1][1], c.pts[k][0], c.pts[k][1]);
-    }
+    const left = CRACK_TIME - c.age;
+    if (left < 0.5 && Math.floor(now / 60) % 2 === 0) return;
+    const a = left < 0.5 ? left / 0.5 : 1;
+    const drawLines = (dx, dy) => {
+      c.lines.forEach((l) => {
+        for (let k = 1; k < l.pts.length; k++) {
+          pixelLine(l.pts[k - 1][0] + dx, l.pts[k - 1][1] + dy, l.pts[k][0] + dx, l.pts[k][1] + dy, l.size);
+        }
+      });
+    };
+    // 暗い影を少しずらして描いてから、白い割れ目を描く（明るい場面でも見えるように）
+    ctx.fillStyle = `rgba(0, 0, 0, ${0.55 * a})`;
+    drawLines(1, 1);
+    ctx.fillStyle = `rgba(235, 248, 255, ${0.95 * a})`;
+    drawLines(0, 0);
+    // 衝突点の白い星
+    ctx.fillStyle = `rgba(255, 255, 255, ${a})`;
+    ctx.fillRect(Math.round(c.cx) - 2, Math.round(c.cy) - 2, 5, 5);
   });
 
   // フラッシュ（点検は白、衝突は赤）
@@ -2393,8 +2634,13 @@ function normalizeKey(e) {
 }
 // ゲーム開始（スペースキー / ゲームパッドのAボタン から呼ばれる）
 function startGame() {
-  if (isGameStarted || isGameOver) return;
+  if (isGameStarted || isGameOver || codexOpen) return;
   isGameStarted = true;
+  // 選んだ難易度でコースを並べ直す（毎回ちがう配置になる）
+  placeObjects(diff);
+  tutorialPending = diff.tutorial;
+  updateModeLabels();
+  updateUI();
   AudioSys.init();
   AudioSys.resume();
   AudioSys.setDrone(true);
@@ -2416,6 +2662,28 @@ function startGame() {
 
 window.addEventListener("keydown", (e) => {
   keys[normalizeKey(e)] = true;
+  // 図鑑を開いているあいだは、図鑑の操作だけ受け付ける
+  if (codexOpen) {
+    const k = normalizeKey(e);
+    if (k === "ArrowLeft" || k === "a") moveCodexSel(-1, 0);
+    else if (k === "ArrowRight" || k === "d") moveCodexSel(1, 0);
+    else if (k === "ArrowUp" || k === "w") moveCodexSel(0, -1);
+    else if (k === "ArrowDown" || k === "s") moveCodexSel(0, 1);
+    else if (k === "Escape" || k === "c" || k === "Backspace") closeCodexScreen();
+    e.preventDefault();
+    return;
+  }
+  // タイトル画面：C で図鑑を開く
+  if (!isGameStarted && !isGameOver && normalizeKey(e) === "c") {
+    openCodexScreen();
+    return;
+  }
+  // タイトル画面：←→（A・D）で難易度を選ぶ
+  if (!isGameStarted && !isGameOver) {
+    const k = normalizeKey(e);
+    if (k === "ArrowLeft" || k === "a") selectDifficulty(-1);
+    if (k === "ArrowRight" || k === "d") selectDifficulty(1);
+  }
   // スペースキーで起動
   if (e.key === " " && !isGameStarted && !isGameOver) {
     startGame();
@@ -2466,6 +2734,7 @@ const Pad = {
   index: null,
   prevButtons: [],
   prevMenuDir: 0, // 一時停止メニューの上下入力（押した瞬間だけ反応させる）
+  prevMenuDirX: 0, // タイトル画面の難易度選択の左右入力
   axisX: 0,
   axisY: 0,
   DEADZONE: 0.22,
@@ -2550,10 +2819,15 @@ const Pad = {
     const r2Pressed = this.pressed(pad, 7);
     const startPressed = this.pressed(pad, 9);
     const bPressed = this.pressed(pad, 1);
+    const yPressed = this.pressed(pad, 3);
     // メニュー用の上下（-1: 上 / 1: 下）。スティックは大きく倒したときだけ
     const menuDir = ay < -0.5 ? -1 : ay > 0.5 ? 1 : 0;
     const menuMoved = menuDir !== 0 && menuDir !== this.prevMenuDir;
     this.prevMenuDir = menuDir;
+    // 難易度選択用の左右（-1: 左 / 1: 右）
+    const menuDirX = ax < -0.5 ? -1 : ax > 0.5 ? 1 : 0;
+    const menuMovedX = menuDirX !== 0 && menuDirX !== this.prevMenuDirX;
+    this.prevMenuDirX = menuDirX;
 
     if (aPressed || r2Pressed) {
       AudioSys.init();
@@ -2561,8 +2835,18 @@ const Pad = {
     }
 
     if (!isGameStarted && !isGameOver) {
-      // タイトル画面：Aボタンで発進
-      if (aPressed) startGame();
+      // 十字キー / スティックの左右で難易度を選び、A で発進
+      // Y で点検図鑑を開く（図鑑の中は十字キーで選び、B / Y / START でもどる）
+      if (codexOpen) {
+        if (menuMovedX) moveCodexSel(menuDirX, 0);
+        if (menuMoved) moveCodexSel(0, menuDir);
+        if (bPressed || yPressed || startPressed) closeCodexScreen();
+      } else if (yPressed) {
+        openCodexScreen();
+      } else {
+        if (menuMovedX) selectDifficulty(menuDirX);
+        if (aPressed) startGame();
+      }
     } else if (isGameOver) {
       // クリア／ゲームオーバー画面：Aボタンでタイトルへ戻る
       // （結果画面が出てから。演出の途中で押してもタイトルへは戻らない）
@@ -2626,6 +2910,55 @@ function blurActiveButton() {
   const el = document.activeElement;
   if (el && el.tagName === "BUTTON") el.blur();
 }
+
+// ============================================================
+// 難易度の選択（タイトル画面）
+//   ←→ / 十字キー / スティックで選び、SPACE / A で発進。クリックするとそのまま発進
+// ============================================================
+const DIFF_NOTES = {
+  easy: "ゆっくり進むよ。最初に「撮影」の練習ができる",
+  normal: "ふつうのスピード。点検ポイントは9か所",
+  hard: "とても速い！点検ポイント12か所、判定もきびしい",
+};
+const diffBtns = DIFFICULTY_ORDER.map((k) => document.getElementById(`diff-${k}`));
+
+function setDifficulty(key) {
+  diff = DIFFICULTIES[key];
+  diffBtns.forEach((b, i) => {
+    if (b) b.classList.toggle("selected", DIFFICULTY_ORDER[i] === key);
+  });
+  const note = document.getElementById("diffNote");
+  if (note) note.innerText = DIFF_NOTES[key];
+}
+
+function selectDifficulty(step) {
+  const i = DIFFICULTY_ORDER.indexOf(diff.key);
+  const ni = Math.max(0, Math.min(DIFFICULTY_ORDER.length - 1, i + step));
+  if (ni === i) return;
+  setDifficulty(DIFFICULTY_ORDER[ni]);
+  AudioSys.init();
+  AudioSys.resume();
+  AudioSys.tone(880, 880, 0.06, "square", 0.08);
+}
+
+// HUD と結果画面に難易度を出す
+function updateModeLabels() {
+  const el = document.getElementById("modeLabel");
+  if (el) el.innerText = diff.label;
+}
+
+diffBtns.forEach((b, i) => {
+  if (!b) return;
+  b.addEventListener("click", () => {
+    blurActiveButton(); // あとでスペースキーを押したときに、このボタンが押されないように
+    if (isGameStarted || isGameOver) return;
+    setDifficulty(DIFFICULTY_ORDER[i]);
+    startGame();
+  });
+  b.addEventListener("mouseenter", () => {
+    if (!isGameStarted) setDifficulty(DIFFICULTY_ORDER[i]);
+  });
+});
 
 // 一時停止切り替え
 function togglePause() {
@@ -2702,6 +3035,9 @@ function resetGame() {
   qteSuccess = 0;
   qtePerfect = 0;
   qteTargets.forEach((o) => (o.qteStarted = false));
+  tutorialPending = false;
+  hpLastSeen = 100;
+  hpLabelUntil = 0;
 
   updatePauseBtn();
   blurActiveButton();
@@ -2860,14 +3196,17 @@ function updateComboUI() {
 //     PERFECT / GOOD：撮影成功 → 点検成功（障害物はその場で取りのぞく）
 //     MISS          ：壁の異常は見逃し、障害物はぶつかってダメージ
 //   操作：スペース / Enter / クリック / ゲームパッド A・R2
+//   スローの強さ・判定の幅・輪の速さは難易度（diff）で変わる
+//   EASY は1回目の QTE がチュートリアル：時間が完全に止まり、輪がゆっくり縮む。
+//     失敗してもダメージなしで、成功するまでやり直せる
 // ============================================================
 const QTE_TRIGGER_DIST = 36; // ドローンからこの距離まで近づいたら始まる
-const QTE_SLOW = 0.08; // スロー中の時間の進み（8%）
 const QTE_RING_START = 40; // 縮む輪の最初の半径（画面のドット）
 const QTE_RING_TARGET = 12; // ピントの枠の半径
-const QTE_PERFECT = 0.08; // ぴったりの瞬間からのずれ（秒）がこれ以内なら PERFECT
-const QTE_GOOD = 0.22; // これ以内なら GOOD
 const QTE_RESULT_HOLD = 0.45; // 判定を見せる時間（秒）
+const TUTORIAL_RING_TIME = 2.2; // チュートリアルで輪が枠に重なるまでの時間（秒）
+const TUTORIAL_RETRY_HOLD = 0.8; // チュートリアルで失敗したあと、やり直すまでの時間（秒）
+let tutorialPending = false; // これから始まる QTE をチュートリアルにするか
 const QTE_LABELS = {
   corrosion: "CORROSION",
   crack: "CRACK",
@@ -2895,7 +3234,10 @@ function qteTargetPos(o) {
 }
 
 function startQte(obj) {
-  const perfectAt = 1.0 + Math.random() * 0.3; // 毎回少しタイミングを変える
+  const tutorial = tutorialPending;
+  // 毎回少しタイミングを変える（チュートリアルはゆっくり一定）
+  const [tMin, tMax] = diff.ringTime;
+  const perfectAt = tutorial ? TUTORIAL_RING_TIME : tMin + Math.random() * (tMax - tMin);
   const shrinkSpeed = (QTE_RING_START - QTE_RING_TARGET) / perfectAt;
   qte = {
     obj: obj,
@@ -2904,10 +3246,19 @@ function startQte(obj) {
     dur: perfectAt + QTE_RING_TARGET / shrinkSpeed, // 輪が消えるまで
     result: null,
     resultT: 0,
+    tutorial: tutorial,
   };
   obj.qteStarted = true;
   AudioSys.playQteStart();
   AudioSys.setMuffle(true);
+  if (tutorial) {
+    showInfoCard(
+      "【練習】輪が白い枠に重なった瞬間に、SPACE（A ボタン）を押そう！",
+      "時間は止まっているよ。失敗してもだいじょうぶ、できるまで練習できる",
+      "trivia",
+      60000,
+    );
+  }
 }
 
 // 縮む輪の今の半径
@@ -2920,12 +3271,52 @@ function qteRingRadius(q) {
 function qtePress() {
   if (!qte || qte.result || isPaused || isGameOver) return false;
   const err = Math.abs(qte.t - qte.perfectAt);
-  resolveQte(err <= QTE_PERFECT ? "PERFECT" : err <= QTE_GOOD ? "GOOD" : "MISS");
+  resolveQte(err <= diff.qtePerfect ? "PERFECT" : err <= diff.qteGood ? "GOOD" : "MISS");
   return true;
 }
 
 function resolveQte(result) {
   const o = qte.obj;
+
+  // チュートリアルの失敗：ダメージなしで、少し待ってからやり直す
+  // （3回失敗したら、先へ進めなくならないよう練習を終えて本番へ）
+  if (qte.tutorial && result === "MISS") {
+    qte.retries = (qte.retries || 0) + 1;
+    if (qte.retries >= 3) {
+      tutorialPending = false;
+      qte.result = "MISS";
+      qte.resultT = 0;
+      o.active = false;
+      o.counted = true;
+      if (o.kind !== "decal") o.visible = false; // 練習なのでぶつからない
+      missedCount++;
+      combo = 0;
+      updateComboUI();
+      AudioSys.playQteMiss();
+      showInfoCard(
+        "だいじょうぶ！ 本番でやってみよう",
+        "縮む輪が白い枠に重なった瞬間に押すよ",
+        "trivia",
+        2800,
+      );
+      updateUI();
+      return;
+    }
+    qte.result = "RETRY";
+    qte.resultT = 0;
+    AudioSys.playQteMiss();
+    showInfoCard(
+      "おしい！ もう一度やってみよう",
+      "縮んでくる輪が、白い枠にぴったり重なった瞬間に押すよ",
+      "trivia",
+      60000,
+    );
+    return;
+  }
+  if (qte.tutorial) {
+    tutorialPending = false;
+  }
+
   qte.result = result;
   qte.resultT = 0;
   o.active = false;
@@ -2943,7 +3334,7 @@ function resolveQte(result) {
       showInfoCard("ピントが合わなかった…", "", "", 1400);
     } else {
       // 障害物を取りのぞけず、ぶつかる
-      hp -= 15;
+      hp -= dmg(15);
       collidedCount++;
       o.visible = false;
       shakeIntensity = 0.9;
@@ -2991,7 +3382,16 @@ function resolveQte(result) {
 
   // 短い通知（詳しい解説は結果画面の図鑑で読める）
   const info = ANOMALY_INFO[o.type];
-  if (info) showInfoCard(`${o.kind === "decal" ? "撮影成功！" : "除去！"} ${info.name}`, "");
+  if (qte.tutorial) {
+    showInfoCard(
+      "できた！ その調子！",
+      "「！」の点検ポイントが来たら、同じように撮影しよう",
+      "trivia",
+      2800,
+    );
+  } else if (info) {
+    showInfoCard(`${o.kind === "decal" ? "撮影成功！" : "除去！"} ${info.name}`, "");
+  }
   addLog(
     `SCAN ${result}: ${o.type.toUpperCase()} (+${gained}${mult > 1 ? ` / COMBO x${mult}` : ""})`,
   );
@@ -3016,13 +3416,23 @@ function updateQte(dt) {
 
   let targetScale = 1;
   if (qte) {
+    // チュートリアルは時間を完全に止める
+    const slow = qte.tutorial ? 0 : diff.qteSlow;
     qte.t += dt;
     if (!qte.result) {
-      targetScale = QTE_SLOW;
+      targetScale = slow;
       if (qte.t >= qte.dur) resolveQte("MISS"); // 押さなかった
+    } else if (qte.result === "RETRY") {
+      // チュートリアルの失敗：少し待って、輪を最初から縮め直す
+      targetScale = slow;
+      qte.resultT += dt;
+      if (qte.resultT >= TUTORIAL_RETRY_HOLD) {
+        qte.result = null;
+        qte.t = 0;
+      }
     } else {
       qte.resultT += dt;
-      targetScale = qte.resultT < QTE_RESULT_HOLD * 0.5 ? QTE_SLOW : 1;
+      targetScale = qte.resultT < QTE_RESULT_HOLD * 0.5 ? slow : 1;
       if (qte.resultT >= QTE_RESULT_HOLD) {
         qte = null;
         AudioSys.setMuffle(false);
@@ -3037,7 +3447,7 @@ function updateQte(dt) {
 
 // スロー演出の強さ（0〜1）
 function slowAmount() {
-  return Math.max(0, Math.min(1, (1 - timeScale) / (1 - QTE_SLOW)));
+  return Math.max(0, Math.min(1, (1 - timeScale) / (1 - diff.qteSlow)));
 }
 
 window.addEventListener("click", (event) => {
@@ -3064,7 +3474,7 @@ function updateUI() {
   hpBarEl.style.width = `${safeHp}%`;
 
   scoreEl.innerText = score;
-  inspectedEl.innerText = `${qteSuccess} / ${QTE_COUNT}`;
+  inspectedEl.innerText = `${qteSuccess} / ${qteTargets.length}`;
 
   const progress = Math.min(100, (distance / goalDistance) * 100);
   distBarEl.style.width = `${progress}%`;
@@ -3270,10 +3680,132 @@ function renderCodex() {
   }
 }
 
+// ============================================================
+// タイトル画面から開く点検図鑑
+//   左：6種類のマス（未発見はシルエットと「？？？」） / 右：選んだものの詳しい説明
+//   開く：C キー / ゲームパッド Y / 右上のボタン
+//   選ぶ：←→↑↓・十字キー・マウス　もどる：ESC・C / B・Y / もどるボタン
+// ============================================================
+let codexOpen = false;
+let codexSel = 0;
+const CODEX_COLS = 3;
+const CODEX_KIND_TEXT = {
+  corrosion: "壁の異常（撮影して記録する）",
+  crack: "壁の異常（撮影して記録する）",
+  rebar: "壁の異常（撮影して記録する）",
+  leak: "障害物（撮影して取りのぞく）",
+  sediment: "障害物（撮影して取りのぞく）",
+  roots: "障害物（撮影して取りのぞく）",
+};
+const codexScreenEl = document.getElementById("codexScreen");
+
+function openCodexScreen() {
+  if (codexOpen || isGameStarted || isGameOver || !codexScreenEl) return;
+  codexOpen = true;
+  codexSel = 0;
+  buildCodexScreen();
+  codexScreenEl.style.display = "flex";
+  codexScreenEl.offsetHeight; // リフロー強制
+  codexScreenEl.style.opacity = 1;
+  AudioSys.init();
+  AudioSys.resume();
+  AudioSys.tone(660, 990, 0.1, "square", 0.08);
+}
+
+function closeCodexScreen() {
+  if (!codexOpen) return;
+  codexOpen = false;
+  blurActiveButton();
+  codexScreenEl.style.opacity = 0;
+  setTimeout(() => {
+    if (!codexOpen) codexScreenEl.style.display = "none";
+  }, 300);
+  AudioSys.tone(990, 660, 0.1, "square", 0.08);
+}
+
+// 選択を動かす（左右は1マス、上下は1段。端まで行くと反対側へ回る）
+function moveCodexSel(dx, dy) {
+  const n = CODEX_ORDER.length;
+  const i = (((codexSel + dx + dy * CODEX_COLS) % n) + n) % n;
+  if (i === codexSel) return;
+  codexSel = i;
+  updateCodexSelection();
+  AudioSys.tone(880, 880, 0.05, "square", 0.06);
+}
+
+function buildCodexScreen() {
+  const grid = document.getElementById("codexScreenGrid");
+  grid.innerHTML = "";
+  let discovered = 0;
+  CODEX_ORDER.forEach((key, i) => {
+    const info = ANOMALY_INFO[key];
+    const found = codexSession[key] > 0;
+    if (found) discovered++;
+
+    const cell = document.createElement("div");
+    cell.className = `codex-cell${found ? " found" : ""}`;
+    const icon = document.createElement("div");
+    icon.className = "codex-icon";
+    const img = document.createElement("img");
+    img.src = codexIconURL(key, found);
+    img.alt = found ? info.short : "？";
+    icon.appendChild(img);
+    cell.appendChild(icon);
+    const name = document.createElement("div");
+    name.className = "codex-name";
+    name.innerText = found ? info.short : "？？？";
+    cell.appendChild(name);
+
+    cell.addEventListener("mouseenter", () => {
+      if (codexSel === i) return;
+      codexSel = i;
+      updateCodexSelection();
+    });
+    grid.appendChild(cell);
+  });
+
+  const prog = document.getElementById("codexScreenProgress");
+  if (prog) {
+    prog.innerText =
+      discovered >= CODEX_ORDER.length
+        ? `★ コンプリート！ ${discovered} / ${CODEX_ORDER.length} 種類`
+        : `発見 ${discovered} / ${CODEX_ORDER.length} 種類　点検ポイント「！」で撮影して集めよう`;
+  }
+  updateCodexSelection();
+}
+
+function updateCodexSelection() {
+  const grid = document.getElementById("codexScreenGrid");
+  [...grid.children].forEach((c, i) => c.classList.toggle("selected", i === codexSel));
+
+  const key = CODEX_ORDER[codexSel];
+  const info = ANOMALY_INFO[key];
+  const count = codexSession[key];
+  const found = count > 0;
+  document.getElementById("codexDetail").classList.toggle("found", found);
+  document.getElementById("codexDetailImg").src = codexIconURL(key, found);
+  document.getElementById("codexDetailName").innerText = found ? info.name : "？？？";
+  document.getElementById("codexDetailKind").innerText = CODEX_KIND_TEXT[key];
+  document.getElementById("codexDetailDesc").innerText = found
+    ? info.desc
+    : "まだ見つけていない。点検ポイント「！」で撮影すると、ここに記録されるよ。";
+  document.getElementById("codexDetailCount").innerText = found
+    ? `これまでに ${count} 回 点検した`
+    : "";
+}
+
+document.getElementById("codexOpenBtn").addEventListener("click", () => {
+  blurActiveButton();
+  openCodexScreen();
+});
+document.getElementById("codexCloseBtn").addEventListener("click", () => {
+  closeCodexScreen();
+});
+
 function showClearScreen() {
   updatePauseBtn();
   resultShown = true;
-  const rate = qteSuccess / QTE_COUNT;
+  const rate = qteTargets.length > 0 ? qteSuccess / qteTargets.length : 0;
   const r = RANKS.find((x) => rate >= x.min);
 
   const badge = document.getElementById("rankBadge");
@@ -3282,8 +3814,10 @@ function showClearScreen() {
   document.getElementById("rankTitle").innerText = `認定: ${r.title}`;
   document.getElementById("rankComment").innerText = r.comment;
 
+  const sub = document.getElementById("clearSubtitle");
+  if (sub) sub.innerText = `点検完了レポート（300m / ${diff.label}）`;
   document.getElementById("finalFound").innerText =
-    `${qteSuccess} / ${QTE_COUNT} 回（PERFECT ${qtePerfect}）`;
+    `${qteSuccess} / ${qteTargets.length} 回（PERFECT ${qtePerfect}）`;
   document.getElementById("finalMissed").innerText = `${missedCount} 回`;
   document.getElementById("finalRate").innerText = `${Math.round(rate * 100)}%`;
   document.getElementById("finalCombo").innerText = `×${Math.max(1, maxCombo)}`;
@@ -3465,7 +3999,7 @@ function updateCourseEvents() {
     addLog("ALERT: HEAVY RAIN - WATER LEVEL RISING", "danger");
   }
   floodK = floodAmountAt(distance);
-  waterLevel = WATER_BASE + floodK * FLOOD_RISE;
+  waterLevel = WATER_BASE + floodK * diff.floodRise;
   Music.intense = floodK > 0.05;
 }
 
@@ -3542,11 +4076,11 @@ function animate() {
   f60 = dt * 60;
 
   // 進行処理（奥へ進むほど少しずつ加速する。増水中は流れに押されてさらに速い）
-  const speedPerFrame = baseSpeed + (distance / goalDistance) * 0.6;
+  const speedPerFrame = (baseSpeed + (distance / goalDistance) * 0.6) * diff.speedMul;
   const speed = speedPerFrame * 60 * (1 + floodK * 0.25); // 1秒あたり
   cam.z -= speed * dt;
   distance = Math.abs(cam.z) / zToMeterRatio;
-  speedFactor = Math.min(1, (speed / 60 - baseSpeed) / 0.8 + 0.25);
+  speedFactor = Math.max(0, Math.min(1, (speed / 60 - baseSpeed) / 0.8 + 0.25));
 
   // スピードに応じて視野を広げる（ワープ感）。スロー中は少しズームして対象に寄る
   focal = BASE_FOCAL * (1 - 0.16 * speedFactor) * (1 + 0.2 * slowAmount());
@@ -3634,7 +4168,7 @@ function animate() {
   // 壁との衝突判定
   const distFromCenter = Math.sqrt(cam.x ** 2 + cam.y ** 2);
   if (distFromCenter > pipeRadius - 1) {
-    hp -= 30 * dt; // 壁接触ダメージ（持続）
+    hp -= dmg(30) * dt; // 壁接触ダメージ（持続）
     shakeIntensity = Math.min(0.2, shakeIntensity + 1.8 * dt); // 壁接触時は微小な画面ブレ
     // 壁の外に出ないように押し戻す
     const push = Math.pow(0.95, f60);
@@ -3654,7 +4188,7 @@ function animate() {
 
   // 水面との接触判定（増水中に下を飛ぶとダメージ）
   if (cam.y - 0.5 < waterLevel) {
-    hp -= 20 * dt;
+    hp -= dmg(20) * dt;
     shakeIntensity = Math.min(0.25, shakeIntensity + 1.8 * dt);
     if (Math.random() < f60 * 0.6) {
       FX.burst(cam.x, waterLevel, cam.z - 1, ["#9fd4ff", "#e0f6ff", "#6d8f7a"], 4, 7, 0.5);
@@ -3666,7 +4200,7 @@ function animate() {
   // オブジェクトとの衝突判定
   hazards.forEach((h) => {
     if (h.active && hitsBox(h.box)) {
-      hp -= 15;
+      hp -= dmg(15);
       shakeIntensity = 0.9; // 障害物衝突時は大きな画面ブレ
       hitStop = 0.1;
       hurtBlink = 0.7;
@@ -3739,6 +4273,10 @@ function animate() {
 window.addEventListener("resize", setupScreen);
 
 // タイトル画面のドローン（ゲーム内と同じドット絵。2コマを切り替えてローターを回す）
+// 難易度の初期値（タイトル画面のボタンの表示もそろえる）
+setDifficulty(diff.key);
+updateModeLabels();
+
 (function setupTitleDrone() {
   const img = document.getElementById("titleDrone");
   if (!img) return;
