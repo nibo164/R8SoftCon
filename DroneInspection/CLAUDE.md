@@ -27,13 +27,13 @@
 
 | 版 | ファイル | 描画 |
 |---|---|---|
-| ドット絵版（主役） | `pixel.html` / `pixel.js` | Canvas 2D だけの自作疑似3D（Three.js 不要） |
+| ドット絵版（主役） | `pixel.html` / `pixel.css` / `js/*.js`（17ファイル） | Canvas 2D だけの自作疑似3D（Three.js 不要） |
 | 3D版（比較用） | `index.html` / `script.js` | Three.js **r128**（CDN から読み込み） |
 
-- `style.css` は両方の版で共通。ドット絵版だけの見た目は `pixel.html` の `<style>` に書く
+- `style.css` は両方の版で共通。ドット絵版だけの見た目は `pixel.css` に書く（`style.css` のあとに読み込んで上書きする）
   - ドット絵版のタイトル・ポーズ・結果画面とプレイ中の HUD は `body.pixel-ui` の下でドット絵風に上書きしている（角の欠けた 4px のドット枠、ぼかし・角丸なし、カクカクしたアニメーション）
   - フォントはドット絵版だけ Press Start 2P（英字の見出し）と DotGothic16（日本語）を Google Fonts から読む
-  - 図鑑のアイコンとタイトル画面のドローンは、ゲーム内のドット絵を `pixel.js`（`codexIconURL` / `setupTitleDrone`）で画像にして使う
+  - 図鑑のアイコンとタイトル画面のドローンは、ゲーム内のドット絵を `js/ui.js` の `codexIconURL` と `js/main.js` の `setupTitleDrone` で画像にして使う
 - **3D版は比較用として凍結**。ドット絵版に入れた演出・仕様変更（デルタタイム、ランク、曲がる管など）は3D版には入れない。両版の同期も不要
 - Three.js は r128 を使う。新しい版の API（import 構文、r150 以降の変更点など）は使わない
 - 画像・音声の外部ファイルは使わない（「外部アセット0」をアピールしている）
@@ -47,7 +47,7 @@ python3 -m http.server 8000
 # → http://localhost:8000/index.html（3D版） / http://localhost:8000/pixel.html（ドット絵版）
 ```
 
-変更後は最低限 `node --check script.js`（`pixel.js` も）で構文チェックする。
+変更後は最低限 `node --check script.js`（ドット絵版は `js/*.js` をそれぞれ）で構文チェックする。
 この開発機には node / python が入っていないため、その場合はローカルサーバーを立ててブラウザで読み込み、コンソールにエラーが出ないことで確認する。
 
 ## script.js の構成
@@ -68,31 +68,32 @@ python3 -m http.server 8000
 | `showClearScreen` / `renderCodex` / `householdComment` | 点検レポート、図鑑、守った世帯数 |
 | `animate` | メインループ |
 
-## pixel.js の構成（script.js と違うところ）
+## ドット絵版のファイル構成（js/）
 
-図鑑データ・`Pad`・ポーズメニュー・結果画面などは script.js とほぼ同じ。違うのは次の部分。
+`pixel.html` から次の順番で読み込む普通の `<script>`（ES モジュールではない）。トップレベルの変数・関数はファイルをまたいで共有される。
+**読み込んだ時点で動く処理（起動時の配置、テクスチャ生成、ボタンへのイベント登録など）は、自分より前のファイルの中身だけを使う**こと。ゲーム中に呼ばれる関数は、全ファイルを読み込んだ後に動くので順番の影響を受けない。順番を間違えると、ページを開いた瞬間にコンソールにエラーが出る。
 
-| セクション | 内容 |
-|---|---|
-| `setupScreen` / `cam` / `focal` | 縦180ピクセル固定の低解像度画面。`cam` はドローンの位置（「まっすぐな管」の座標系）。`focal` はスピードに応じて変わる焦点距離 |
-| `Music` / `AudioSys.play*`（追加分） | Web Audio で合成するチップチューン BGM（8小節ループ。増水中は `intense` でテンポアップ）、カウントダウン・サイレンなどの効果音 |
-| `zoneTextures`（`createPipeTexture` / `createBrickTexture` / `createTrunkTexture`） | 区間ごとの管テクスチャ（コンクリート → レンガ → 幹線） |
-| `ZONES` / `courseCenter` / `floodAmountAt` | コースの定義。100mごとの区間、管の曲がり（中心線のずれ）、増水イベント（160mで警報、170〜236mで水位が上下） |
-| `updateBend` / `bendAt` | 管の曲がりの前計算。**当たり判定はまっすぐな管の座標のまま計算し、描画のときだけ曲げる**（レースゲームと同じ方式）。カーブでは遠心力で外側へ流される |
-| `FONT` / `drawText` | 5x7 ドットフォント（英大文字・数字・記号のみ） |
-| `createDroneFrames` / `CAM_UP` / `CAM_BACK` | ドローンのドット絵。カメラはドローンの少し上・後ろから追いかける |
-| `FX` | 演出：破片、広がる輪、飛び出す数字、フラッシュ、画面のヒビ（衝突点から放射状に割れるガラスのようなヒビ。`CRACK_TIME` 秒で消える）、スピード線、中央の大きな文字（`showBanner`） |
-| `drawHpRing` | 体力ゲージ。ドローンを囲む 24 区切りの輪（緑 → 黄 → 赤、少ないと点滅）。ダメージで白く光り、回復で緑に光る。変化したあと数値を表示。HUD パネルの体力の行は `.hp-item` で隠している |
-| `renderTunnel` | 1ピクセルずつ視線と管の交点を求めて描く（曲がった管は二分探索）。水面は高さを持つ水平な面。明るさは6段階＋ディザ。デカールの番号と奥行きを `idBuf` / `depthBuf` に記録（点検が QTE になったので今は判定に使っていない。技術の見える化などに使える） |
-| `renderWorld` | 障害物・光の柱・破片・ドローンを奥から順に描く。水面より下は切り取る |
-| `renderOverlay` | 画面に重ねる演出（スピード線、コンボ、警告灯、体力低下の赤いふち、フラッシュなど） |
-| `renderCity` | ゴール後、マンホールから地上へ飛び出したときの晴れた街の場面 |
-| `DIFFICULTIES` / `diff` / `setDifficulty` | 難易度（EASY / NORMAL / HARD）。数値だけを変え、コースの形は同じ。タイトル画面で ←→ / 十字キーで選ぶ（クリックでそのまま発進）。ダメージは `dmg()` で倍率を掛ける |
-| `placeObjects(diff)` / `qteTargets` | 配置。**ゲームを始めるたびに**選んだ難易度で並べ直す。点検ポイント（QTE の対象）を 30〜280m にほぼ等間隔で置き、6種類を最低1回ずつ出す。避けるだけの障害物は QTE の地点の前後とチェックポイントの近くには置かない |
-| `startQte` / `qtePress` / `resolveQte` / `updateQte` | 点検 QTE（ピント合わせ）。点検ポイントの 36 手前でスローになり、縮む輪がピントの枠に重なった瞬間に押す。PERFECT / GOOD で成功、MISS は壁の異常なら見逃し・障害物ならぶつかってダメージ。EASY の1回目はチュートリアル（`tutorialPending`） |
-| `loadCodex` / `saveCodex` / `openCodexScreen` | 点検図鑑。記録は localStorage（キー `drainDive.codex.v1`）に保存し、再読み込みしても残る。タイトル画面の右上ボタン / C キー / ゲームパッド Y で図鑑の画面を開く（未発見はシルエットと「？？？」）。**撮影用**：URL に `?codex=all` で全種類発見済み、`?codex=reset` で記録を消す |
-| `renderQte` | QTE の表示（ピントの枠と縮む輪、映画の黒帯、周りの網目、判定の文字）と、近づく点検ポイントの黄色い「!」 |
-| `animate` | メインループ。経過秒（dt）で動く。QTE の判定は実時間、移動・ダメージ・破片は `timeScale` を掛けたゲーム内の時間で進む。カウントダウン → プレイ → ゴール演出 / 墜落演出 |
+| 順 | ファイル | 主な中身 |
+|---|---|---|
+| 1 | `screen.js` | `setupScreen` / `cam` / `focal`：縦180ピクセル固定の低解像度画面。`cam` はドローンの位置（「まっすぐな管」の座標系）。`focal` はスピードに応じて変わる焦点距離 |
+| 2 | `audio.js` | `AudioSys`（効果音・プロペラ音、スロー中に音をこもらせる `setMuffle`）、`Music`（チップチューン BGM。8小節ループ。増水中は `intense` でテンポアップ） |
+| 3 | `data.js` | `ANOMALY_INFO` / `CODEX_ORDER` / `TRIVIA`、図鑑の記録 `codexSession`。`loadCodex` / `saveCodex` で localStorage（キー `drainDive.codex.v1`）に保存。**撮影用**：URL に `?codex=all` で全種類発見済み、`?codex=reset` で記録を消す |
+| 4 | `pixelart.js` | ドット絵の道具（`makePixels` / `setPx` / `makeShadedVariants` など）、区間ごとの管テクスチャ `zoneTextures`、水面テクスチャ、5x7 ドットフォント（`FONT` / `drawText`。英大文字・数字・記号のみ）、ドローンのドット絵（`createDroneFrames` / `CAM_UP` / `CAM_BACK`） |
+| 5 | `objects.js` | 障害物（スプライト）と壁の異常（デカール）の生成、`DIFFICULTIES` / `diff` / `dmg()`、`placeObjects(diff)` / `qteTargets`（**ゲームを始めるたびに**選んだ難易度で並べ直す。点検ポイントを 30〜280m にほぼ等間隔で置き、6種類を最低1回ずつ出す。避けるだけの障害物は QTE の地点の前後とチェックポイントの近くには置かない）、マンホール |
+| 6 | `course.js` | `ZONES` / `courseCenter` / `floodAmountAt`：100mごとの区間、管の曲がり、増水（160mで警報、170〜236mで水位が上下）。`updateBend` / `bendAt`：管の曲がりの前計算。**当たり判定はまっすぐな管の座標のまま計算し、描画のときだけ曲げる**（レースゲームと同じ方式）。カーブでは遠心力で外側へ流される |
+| 7 | `fx.js` | `FX`：破片、広がる輪、飛び出す数字、フラッシュ、画面のヒビ（衝突点から放射状に割れるガラスのようなヒビ。`CRACK_TIME` 秒で消える）、スピード線、中央の大きな文字（`showBanner`） |
+| 8 | `render-tunnel.js` | 投影 `project`、ライティング、`renderTunnel`：1ピクセルずつ視線と管の交点を求めて描く（曲がった管は二分探索）。水面は高さを持つ水平な面。明るさは6段階＋ディザ。デカールの番号と奥行きを `idBuf` / `depthBuf` に記録（今は判定に使っていない。技術の見える化などに使える） |
+| 9 | `render-world.js` | `renderWorld`：障害物・光の柱・破片・ドローンを奥から順に描く。水面より下は切り取る |
+| 10 | `render-overlay.js` | `renderQte`（QTE の表示と点検ポイントの「!」）、`drawHpRing`（ドローンを囲む 24 区切りの体力ゲージ。HUD パネルの体力の行は `.hp-item` で隠している）、`renderOverlay`（スピード線、コンボ、警告灯、体力低下の赤いふち、ヒビ、フラッシュなど） |
+| 11 | `render-city.js` | `renderCity`（ゴール後の地上の街）と、1フレーム分の描画 `renderFrame` |
+| 12 | `state.js` | ゲーム状態の変数（体力・スコア・進行・演出） |
+| 13 | `input.js` | キーボード、`Pad`（ゲームパッド）、ポーズメニュー、難易度の選択（`setDifficulty` / `selectDifficulty`）、メニューボタンのイベント |
+| 14 | `ui.js` | ログ、通知カード、HUD の更新 `updateUI`、点検レポート（`RANKS` / `showClearScreen`）、守った世帯数、図鑑（`codexIconURL` / `renderCodex`、タイトル画面から開く `openCodexScreen`） |
+| 15 | `qte.js` | 点検 QTE（`startQte` / `qtePress` / `resolveQte` / `updateQte`）とチュートリアル（`tutorialPending`）、クリックでの撮影 |
+| 16 | `game.js` | ゲームの流れ：`startGame` / `togglePause` / `resetGame`、衝突判定 `hitsBox`、カウントダウン、ゴール演出、墜落、区間と増水の進行 |
+| 17 | `main.js` | メインループ `animate`（経過秒 dt で動く。QTE の判定は実時間、移動・ダメージ・破片は `timeScale` を掛けたゲーム内の時間で進む）と起動処理 |
+
+ドット絵版だけの CSS は `pixel.css`（`style.css` のあとに読み込んで上書きする）。
 
 ### 点検の仕組み（QTE）
 

@@ -1,0 +1,1177 @@
+/* ============================================================
+   pixel.css — ドット絵版（pixel.html）だけの見た目
+   style.css（3D版と共通）のあとに読み込み、ドット絵版の見た目に上書きする
+   ============================================================ */
+
+/* ドット絵版：低解像度キャンバスをにじませずに拡大する */
+#gameCanvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.pixel-edition {
+  color: #ffcc33;
+  letter-spacing: 0.3em;
+}
+/* 通知カード：テンポを止めないよう、画面上部に小さく短く出す */
+#infoCard {
+  top: 72px;
+  bottom: auto;
+  width: auto;
+  min-width: 260px;
+  max-width: 60vw;
+  padding: 8px 16px;
+  text-align: center;
+}
+#infoCard .info-title {
+  margin-bottom: 0;
+}
+#infoCard .info-desc {
+  margin-top: 4px;
+  font-size: 13px;
+}
+/* コンボはキャンバス上にドット文字で描くので、HTML の表示は使わない */
+#comboDisplay {
+  display: none;
+}
+/* 結果画面の豆知識 */
+.result-trivia {
+  margin-top: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #fff3c0;
+  border: 1px dashed rgba(255, 204, 0, 0.4);
+  border-radius: 4px;
+  text-align: left;
+}
+
+/* ============================================================
+   ドット絵風 UI（タイトル・ポーズ・クリア・ゲームオーバー画面）
+   - 文字：英字の見出しは Press Start 2P、日本語は DotGothic16
+   - 枠：角が欠けた 4px のドット枠（box-shadow で描く）＋ずらした影
+   - ぼかし・発光・角丸は使わない。アニメーションはカクカク（steps）
+   ============================================================ */
+.pixel-ui {
+  --px-yellow: #ffe14d;
+  --px-orange: #ff9a3c;
+  --px-red: #ff4d6d;
+  --px-cyan: #4dd8ff;
+  --px-green: #6dff7a;
+  --px-white: #f4f4f4;
+  --px-panel: #141a26;
+  --px-dark: #06080c;
+  --px-shadow: rgba(0, 0, 0, 0.6);
+  --px-head: "Press Start 2P", "DotGothic16", monospace;
+  --px-jp: "DotGothic16", "Press Start 2P", monospace;
+}
+
+/* 画面全体を覆う背景：ぼかしの代わりに 2px の網目（ディザ）で暗くする */
+.pixel-ui #startScreen,
+.pixel-ui #pauseScreen,
+.pixel-ui #clearScreen,
+.pixel-ui #gameOverScreen {
+  backdrop-filter: none;
+  background-color: rgba(4, 6, 10, 0.55);
+  background-image: repeating-conic-gradient(
+    rgba(0, 0, 0, 0.55) 0 25%,
+    transparent 0 50%
+  );
+  background-size: 4px 4px;
+  font-family: var(--px-jp);
+  transition: opacity 0.4s steps(4);
+}
+
+/* ドット枠（--f が枠の色）。角が1マス欠けた昔のゲーム風の枠になる */
+.pixel-ui .start-content,
+.pixel-ui .pause-content,
+.pixel-ui .clear-content,
+.pixel-ui .gameover-content,
+.pixel-ui .impact-box,
+.pixel-ui .codex-box,
+.pixel-ui .codex-cell,
+.pixel-ui .result-stats,
+.pixel-ui .pad-instructions,
+.pixel-ui .result-trivia,
+.pixel-ui .rank-badge {
+  --f: var(--px-white);
+  border: none;
+  border-radius: 0;
+  box-shadow:
+    0 -4px 0 0 var(--f),
+    0 4px 0 0 var(--f),
+    -4px 0 0 0 var(--f),
+    4px 0 0 0 var(--f),
+    8px 4px 0 0 var(--px-shadow),
+    4px 8px 0 0 var(--px-shadow),
+    inset 4px 4px 0 0 rgba(255, 255, 255, 0.06),
+    inset -4px -4px 0 0 rgba(0, 0, 0, 0.35);
+}
+.pixel-ui .start-content,
+.pixel-ui .pause-content,
+.pixel-ui .clear-content,
+.pixel-ui .gameover-content {
+  background: var(--px-panel);
+}
+
+/* 大きな見出し（立体的に押し出した影つき） */
+.pixel-ui #startScreen h1,
+.pixel-ui #pauseScreen h2,
+.pixel-ui #clearScreen h2,
+.pixel-ui #gameOverScreen h2 {
+  font-family: var(--px-head);
+  font-weight: 400;
+  letter-spacing: 2px;
+  line-height: 1.3;
+}
+.pixel-ui #startScreen h1 {
+  font-size: 44px;
+  margin: 6px 0 14px 0;
+  color: var(--px-yellow);
+  text-shadow:
+    4px 4px 0 var(--px-orange),
+    8px 8px 0 #7a2a10,
+    -2px -2px 0 var(--px-dark);
+}
+.pixel-ui #pauseScreen h2 {
+  font-size: 24px;
+  color: var(--px-yellow);
+  text-shadow: 3px 3px 0 #7a5a00;
+}
+.pixel-ui #clearScreen h2 {
+  font-size: 24px;
+  color: var(--px-green);
+  text-shadow: 3px 3px 0 #1d6b2a;
+}
+.pixel-ui #gameOverScreen h2 {
+  font-size: 22px;
+  color: var(--px-red);
+  text-shadow: 3px 3px 0 #6b1020;
+}
+.pixel-ui .subtitle {
+  font-family: var(--px-head);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-shadow: none;
+  color: var(--px-cyan);
+  margin: 0 0 20px 0;
+}
+.pixel-ui #gameOverScreen .subtitle {
+  color: var(--px-orange) !important;
+}
+.pixel-ui .pixel-edition {
+  color: var(--px-cyan);
+}
+
+/* ---------------- タイトル画面 ---------------- */
+.pixel-ui .start-content {
+  --f: var(--px-yellow);
+  padding: 26px 44px 22px 44px;
+  max-width: 640px;
+}
+.pixel-ui .title-drone {
+  width: 130px;
+  height: 65px;
+  image-rendering: pixelated;
+  display: block;
+  margin: 0 auto;
+  animation: pxBob 0.8s steps(2) infinite alternate;
+}
+@keyframes pxBob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-6px);
+  }
+}
+.pixel-ui .jp-intro {
+  font-family: var(--px-jp);
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--px-white);
+  border: none;
+  padding: 12px 0;
+  margin: 0 0 16px 0;
+  /* 上下の点線（ドットを並べた線） */
+  background:
+    repeating-linear-gradient(90deg, var(--px-yellow) 0 4px, transparent 4px 10px) top / 100% 4px no-repeat,
+    repeating-linear-gradient(90deg, var(--px-yellow) 0 4px, transparent 4px 10px) bottom / 100% 4px no-repeat;
+}
+.pixel-ui .jp-intro strong {
+  color: var(--px-dark);
+  background: var(--px-yellow);
+  padding: 0 4px;
+  text-shadow: none;
+}
+.pixel-ui .instructions {
+  font-family: var(--px-jp);
+  font-size: 14px;
+  color: var(--px-white);
+}
+.pixel-ui .instructions p {
+  margin: 10px 0;
+}
+/* キーキャップ */
+.pixel-ui .key-label {
+  font-family: var(--px-head);
+  font-size: 10px;
+  color: var(--px-cyan);
+  margin: 0 6px 0 14px;
+}
+.pixel-ui .key-label:first-child {
+  margin-left: 0;
+}
+.pixel-ui .key {
+  display: inline-block;
+  font-family: var(--px-head);
+  font-size: 10px;
+  line-height: 1;
+  color: var(--px-dark);
+  background: var(--px-white);
+  padding: 5px 7px 4px 7px;
+  margin: 0 3px;
+  box-shadow:
+    0 -2px 0 0 var(--px-white),
+    0 2px 0 0 #9aa3ad,
+    0 4px 0 0 var(--px-dark);
+}
+.pixel-ui .pad-instructions {
+  --f: var(--px-cyan);
+  font-family: var(--px-jp);
+  color: var(--px-white);
+  background: rgba(77, 216, 255, 0.08);
+  margin: 18px 0 4px 0;
+}
+.pixel-ui .pad-title {
+  font-family: var(--px-head);
+  font-size: 11px;
+  color: var(--px-cyan);
+  text-shadow: none;
+}
+.pixel-ui .blink-text {
+  font-family: var(--px-head);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--px-yellow);
+  text-shadow: 2px 2px 0 #7a5a00;
+  animation: pxBlink 1s steps(1) infinite;
+  margin-top: 18px !important;
+}
+@keyframes pxBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ---------------- ボタン（ポーズ・結果画面共通） ---------------- */
+.pixel-ui .menu-btn {
+  --f: var(--px-dark);
+  position: relative;
+  font-family: var(--px-head);
+  font-weight: 400;
+  font-size: 12px;
+  letter-spacing: 1px;
+  line-height: 1.4;
+  color: var(--px-dark);
+  background: var(--px-yellow);
+  border: none;
+  border-radius: 0;
+  padding: 12px 16px 10px 16px;
+  width: 320px;
+  transition: none;
+  box-shadow:
+    0 -4px 0 0 var(--f),
+    0 4px 0 0 var(--f),
+    -4px 0 0 0 var(--f),
+    4px 0 0 0 var(--f),
+    4px 8px 0 0 var(--px-shadow),
+    inset -4px -4px 0 0 rgba(0, 0, 0, 0.25),
+    inset 4px 4px 0 0 rgba(255, 255, 255, 0.45);
+}
+.pixel-ui .menu-btn:hover,
+.pixel-ui .menu-btn.selected {
+  background: #fff6b0;
+  color: var(--px-dark);
+  transform: translateY(-2px);
+}
+.pixel-ui .menu-btn:active {
+  transform: translateY(2px);
+}
+/* 選んでいるボタンの左に点滅する矢印 */
+.pixel-ui .menu-btn.selected::before {
+  content: "▶";
+  position: absolute;
+  left: -32px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  color: var(--px-yellow);
+  animation: pxBlink 0.6s steps(1) infinite;
+}
+.pixel-ui .menu-btn.red-btn {
+  background: var(--px-red) !important;
+  color: var(--px-dark) !important;
+  box-shadow:
+    0 -4px 0 0 var(--f),
+    0 4px 0 0 var(--f),
+    -4px 0 0 0 var(--f),
+    4px 0 0 0 var(--f),
+    4px 8px 0 0 var(--px-shadow),
+    inset -4px -4px 0 0 rgba(0, 0, 0, 0.25),
+    inset 4px 4px 0 0 rgba(255, 255, 255, 0.35) !important;
+}
+.pixel-ui .menu-btn.red-btn:hover,
+.pixel-ui .menu-btn.red-btn.selected {
+  background: #ff8da2 !important;
+}
+.pixel-ui .menu-btn.red-btn.selected::before {
+  color: var(--px-red);
+}
+.pixel-ui .menu-btn-jp {
+  font-family: var(--px-jp);
+  font-size: 14px;
+  letter-spacing: 0;
+  margin-top: 6px;
+}
+.pixel-ui .menu-options {
+  gap: 22px;
+}
+.pixel-ui .help-text {
+  font-family: var(--px-jp);
+  font-size: 13px;
+  color: #c9b870;
+}
+.pixel-ui .pause-jp {
+  font-family: var(--px-jp);
+  color: var(--px-white);
+}
+.pixel-ui .pause-content {
+  --f: var(--px-yellow);
+}
+
+/* ---------------- クリア画面・ゲームオーバー画面 ---------------- */
+.pixel-ui .clear-content {
+  --f: var(--px-green);
+}
+.pixel-ui .gameover-content {
+  --f: var(--px-red);
+}
+.pixel-ui .result-stats {
+  --f: #3a4458;
+  background: var(--px-dark) !important;
+  font-family: var(--px-jp);
+}
+.pixel-ui .red-border {
+  --f: #6b2030;
+  border: none !important;
+}
+.pixel-ui .stat-item {
+  font-size: 15px;
+  padding-bottom: 6px;
+  background: repeating-linear-gradient(90deg, #3a4458 0 2px, transparent 2px 6px) bottom / 100% 2px no-repeat;
+}
+.pixel-ui .stat-item:last-child {
+  background: none;
+  padding-bottom: 0;
+}
+.pixel-ui .stat-label {
+  color: #b8c2d0;
+}
+.pixel-ui .stat-value {
+  font-family: var(--px-jp);
+  font-weight: 400;
+  font-size: 17px;
+  text-shadow: none;
+}
+.pixel-ui .green-text {
+  color: var(--px-green);
+  text-shadow: none;
+}
+.pixel-ui .yellow-text {
+  color: var(--px-yellow);
+  text-shadow: none;
+}
+.pixel-ui .red-text {
+  color: var(--px-red) !important;
+  text-shadow: none;
+}
+
+/* ランクのバッジ：四角いドット枠＋ハンコを押すように出てくる */
+.pixel-ui .rank-badge {
+  --f: currentColor;
+  font-family: var(--px-head);
+  font-weight: 400;
+  font-size: 52px;
+  width: 104px;
+  height: 104px;
+  line-height: 112px;
+  background: var(--px-dark);
+  text-shadow: 4px 4px 0 rgba(0, 0, 0, 0.8);
+  animation: pxStamp 0.5s steps(5) both;
+  animation-delay: 0.3s;
+}
+@keyframes pxStamp {
+  0% {
+    transform: scale(2.2) rotate(-12deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(0.9) rotate(3deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+  }
+}
+.pixel-ui .rank-S {
+  color: var(--px-yellow);
+}
+.pixel-ui .rank-A {
+  color: var(--px-green);
+}
+.pixel-ui .rank-B {
+  color: var(--px-cyan);
+}
+.pixel-ui .rank-C {
+  color: #b8c2d0;
+}
+.pixel-ui .rank-title {
+  font-family: var(--px-jp);
+  font-size: 19px;
+  font-weight: 400;
+  text-shadow: 2px 2px 0 var(--px-dark);
+  margin-top: 10px;
+}
+.pixel-ui .rank-comment,
+.pixel-ui .gameover-tip,
+.pixel-ui .gameover-salvage {
+  font-family: var(--px-jp);
+  text-shadow: none;
+}
+.pixel-ui .gameover-salvage {
+  color: var(--px-cyan);
+}
+
+/* 守った暮らし */
+.pixel-ui .impact-box {
+  --f: var(--px-cyan);
+  background: rgba(77, 216, 255, 0.08);
+  margin-top: 8px;
+}
+.pixel-ui .impact-label,
+.pixel-ui .impact-note,
+.pixel-ui .impact-disclaimer {
+  font-family: var(--px-jp);
+}
+.pixel-ui .impact-label {
+  color: var(--px-cyan);
+  font-size: 14px;
+}
+.pixel-ui .impact-value {
+  font-family: var(--px-head);
+  font-weight: 400;
+  font-size: 34px;
+  line-height: 1.4;
+  color: var(--px-cyan);
+  text-shadow: 3px 3px 0 #0d4a5c;
+}
+.pixel-ui .impact-unit {
+  font-family: var(--px-jp);
+  font-size: 18px;
+}
+
+/* 豆知識 */
+.pixel-ui .result-trivia {
+  --f: #7a6a20;
+  font-family: var(--px-jp);
+  background: rgba(255, 225, 77, 0.06);
+  margin-top: 16px;
+  width: 340px;
+  box-sizing: border-box;
+}
+
+/* クリア画面は項目が多いので、1画面に収まるよう余白を詰める */
+.pixel-ui #clearScreen .clear-content {
+  padding: 20px 40px 22px 40px;
+}
+.pixel-ui #clearScreen h2 {
+  margin-bottom: 6px;
+}
+.pixel-ui #clearScreen .subtitle {
+  margin-bottom: 8px;
+}
+.pixel-ui #clearScreen .menu-options {
+  margin-top: 20px;
+}
+.pixel-ui #clearScreen .rank-comment {
+  max-width: 340px;
+  margin-top: 4px;
+}
+
+/* 点検図鑑（アイコンはゲーム内のドット絵を pixel.js で描き込む） */
+.pixel-ui .codex-box {
+  --f: #3a4458;
+  background: var(--px-dark);
+  margin-top: 18px;
+}
+.pixel-ui .codex-header {
+  font-family: var(--px-jp);
+  font-size: 15px;
+  color: var(--px-green);
+  border-bottom: none;
+  background: repeating-linear-gradient(90deg, #3a4458 0 2px, transparent 2px 6px) bottom / 100% 2px no-repeat;
+}
+.pixel-ui .codex-progress {
+  font-family: var(--px-head);
+  font-size: 10px;
+  color: var(--px-yellow);
+}
+.pixel-ui .codex-grid {
+  gap: 12px;
+  padding: 4px;
+}
+.pixel-ui .codex-cell {
+  --f: #2a3242;
+  background: #0c1018;
+  font-family: var(--px-jp);
+  transition: none;
+}
+.pixel-ui .codex-cell.found {
+  --f: var(--px-green);
+  background: rgba(109, 255, 122, 0.06);
+}
+.pixel-ui .codex-cell.fresh {
+  --f: var(--px-yellow);
+  background: rgba(255, 225, 77, 0.08);
+  animation: pxPop 0.4s steps(4) both;
+}
+@keyframes pxPop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.pixel-ui .codex-icon img {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  display: block;
+  margin: 0 auto 2px auto;
+}
+.pixel-ui .codex-cell .codex-name {
+  font-size: 13px;
+}
+.pixel-ui .codex-cell .codex-count {
+  font-size: 11px;
+}
+.pixel-ui .codex-new {
+  font-family: var(--px-head);
+  font-weight: 400;
+  font-size: 8px;
+  border-radius: 0;
+  padding: 3px 4px 2px 4px;
+  top: -8px;
+  right: -8px;
+  background: var(--px-yellow);
+  box-shadow: 2px 2px 0 var(--px-dark);
+}
+.pixel-ui .codex-hint {
+  font-family: var(--px-jp);
+  font-size: 12px;
+}
+.pixel-ui .codex-hint.complete {
+  color: var(--px-yellow);
+  text-shadow: none;
+}
+
+/* ============================================================
+   ドット絵風 HUD（プレイ中の画面）
+   ============================================================ */
+/* 左右のパネル：ドット枠＋昔のRPGのウィンドウのような見出しの帯 */
+.pixel-ui .hud-panel {
+  --f: #3a4458;
+  top: 24px;
+  width: 250px;
+  padding: 0 16px 14px 16px;
+  background: rgba(10, 14, 22, 0.88);
+  backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  box-shadow:
+    0 -4px 0 0 var(--f),
+    0 4px 0 0 var(--f),
+    -4px 0 0 0 var(--f),
+    4px 0 0 0 var(--f),
+    8px 4px 0 0 var(--px-shadow),
+    4px 8px 0 0 var(--px-shadow);
+}
+.pixel-ui .left-panel {
+  left: 24px;
+}
+.pixel-ui .right-panel {
+  right: 24px;
+}
+.pixel-ui .panel-header {
+  font-family: var(--px-head);
+  font-weight: 400;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--px-dark);
+  background: var(--px-green);
+  border: none;
+  text-shadow: none;
+  margin: 0 -16px 12px -16px;
+  padding: 7px 16px 5px 16px;
+}
+.pixel-ui .right-panel .panel-header {
+  background: var(--px-cyan);
+}
+.pixel-ui .label {
+  font-family: var(--px-head);
+  font-size: 8px;
+  letter-spacing: 0;
+  color: #8a94a6;
+  margin-bottom: 6px;
+}
+.pixel-ui .value {
+  font-family: var(--px-head);
+  font-weight: 400;
+  font-size: 13px;
+  text-shadow: 2px 2px 0 var(--px-dark);
+}
+.pixel-ui .hud-item {
+  margin-bottom: 12px;
+}
+/* 点滅もカクカク（なめらかに光らせない） */
+.pixel-ui .animate-pulse {
+  animation: pxBlinkSoft 1s steps(1) infinite;
+}
+@keyframes pxBlinkSoft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.pixel-ui .cyan-text {
+  color: var(--px-cyan);
+  text-shadow: 2px 2px 0 var(--px-dark);
+}
+
+/* メーター：ドット枠の中に、区切りのあるブロックが並ぶ */
+.pixel-ui .bar-container {
+  height: 10px;
+  margin: 4px 2px 8px 2px;
+  width: calc(100% - 4px);
+  background: #05070b;
+  border: none;
+  border-radius: 0;
+  box-shadow:
+    0 -2px 0 0 #3a4458,
+    0 2px 0 0 #3a4458,
+    -2px 0 0 0 #3a4458,
+    2px 0 0 0 #3a4458;
+}
+.pixel-ui .bar-fill {
+  transition: width 0.15s steps(3);
+  box-shadow: none;
+  /* 6px ごとに 2px のすき間を入れてブロック状にする */
+  -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px);
+  mask-image: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px);
+}
+.pixel-ui .red-bar {
+  background: linear-gradient(#ff8da2 0 30%, var(--px-red) 30%);
+}
+.pixel-ui .cyan-bar {
+  background: linear-gradient(#b3efff 0 30%, var(--px-cyan) 30%);
+}
+
+/* 照準：丸い照準をやめて、四角いドットの照準にする */
+.pixel-ui .reticle {
+  width: 112px;
+  height: 112px;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  transition: none;
+  --rc: rgba(109, 255, 122, 0.85);
+}
+.pixel-ui .reticle-circle {
+  width: 10px;
+  height: 10px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow:
+    0 -3px 0 0 var(--rc),
+    0 3px 0 0 var(--rc),
+    -3px 0 0 0 var(--rc),
+    3px 0 0 0 var(--rc);
+}
+.pixel-ui .reticle-hair-h,
+.pixel-ui .reticle-hair-v {
+  background: none;
+}
+/* 十字の線は点線（ドットを並べた線）。中央はあけて見やすくする */
+.pixel-ui .reticle-hair-h {
+  height: 3px;
+  margin-top: -1px;
+  left: -18px;
+  right: -18px;
+  background:
+    repeating-linear-gradient(90deg, var(--rc) 0 3px, transparent 3px 6px) left / 42% 100% no-repeat,
+    repeating-linear-gradient(90deg, var(--rc) 0 3px, transparent 3px 6px) right / 42% 100% no-repeat;
+}
+.pixel-ui .reticle-hair-v {
+  width: 3px;
+  margin-left: -1px;
+  top: -18px;
+  bottom: -18px;
+  background:
+    repeating-linear-gradient(180deg, var(--rc) 0 3px, transparent 3px 6px) top / 100% 42% no-repeat,
+    repeating-linear-gradient(180deg, var(--rc) 0 3px, transparent 3px 6px) bottom / 100% 42% no-repeat;
+}
+.pixel-ui .reticle-corner {
+  width: 14px;
+  height: 14px;
+  border-width: 4px;
+  border-color: var(--rc);
+  border-radius: 0;
+  box-shadow: none;
+}
+/* 対象を捉えたら黄色になって、四隅がカクカク内側へ寄る */
+.pixel-ui .reticle.locked {
+  --rc: var(--px-yellow);
+  transform: translate(-50%, -50%);
+}
+.pixel-ui .reticle.locked .reticle-circle {
+  box-shadow:
+    0 -3px 0 0 var(--rc),
+    0 3px 0 0 var(--rc),
+    -3px 0 0 0 var(--rc),
+    3px 0 0 0 var(--rc);
+  animation: none;
+}
+.pixel-ui .reticle.locked .reticle-corner {
+  border-color: var(--rc);
+  box-shadow: none;
+  animation: pxLockIn 0.4s steps(2) infinite alternate;
+}
+/* 捉えたときも点線のまま（style.css の塗りつぶしの線を打ち消す） */
+.pixel-ui .reticle.locked .reticle-hair-h {
+  background:
+    repeating-linear-gradient(90deg, var(--rc) 0 3px, transparent 3px 6px) left / 42% 100% no-repeat,
+    repeating-linear-gradient(90deg, var(--rc) 0 3px, transparent 3px 6px) right / 42% 100% no-repeat;
+}
+.pixel-ui .reticle.locked .reticle-hair-v {
+  background:
+    repeating-linear-gradient(180deg, var(--rc) 0 3px, transparent 3px 6px) top / 100% 42% no-repeat,
+    repeating-linear-gradient(180deg, var(--rc) 0 3px, transparent 3px 6px) bottom / 100% 42% no-repeat;
+}
+@keyframes pxLockIn {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(0.75);
+  }
+}
+
+/* ポーズボタン：メニューと同じ黄色いドットのボタンを小さく */
+.pixel-ui .pause-btn {
+  top: 24px;
+  font-family: var(--px-head);
+  font-weight: 400;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--px-dark);
+  background: var(--px-yellow);
+  border: none;
+  border-radius: 0;
+  padding: 8px 14px 6px 14px;
+  transition: none;
+  box-shadow:
+    0 -3px 0 0 var(--px-dark),
+    0 3px 0 0 var(--px-dark),
+    -3px 0 0 0 var(--px-dark),
+    3px 0 0 0 var(--px-dark),
+    3px 6px 0 0 var(--px-shadow),
+    inset -3px -3px 0 0 rgba(0, 0, 0, 0.25),
+    inset 3px 3px 0 0 rgba(255, 255, 255, 0.45);
+}
+.pixel-ui .pause-btn:hover {
+  background: #fff6b0;
+  color: var(--px-dark);
+  box-shadow:
+    0 -3px 0 0 var(--px-dark),
+    0 3px 0 0 var(--px-dark),
+    -3px 0 0 0 var(--px-dark),
+    3px 0 0 0 var(--px-dark),
+    3px 6px 0 0 var(--px-shadow),
+    inset -3px -3px 0 0 rgba(0, 0, 0, 0.25),
+    inset 3px 3px 0 0 rgba(255, 255, 255, 0.45);
+}
+.pixel-ui .pause-btn:active {
+  transform: translate(-50%, 2px);
+}
+.pixel-ui .pause-btn-jp {
+  font-family: var(--px-jp);
+  font-size: 11px;
+  letter-spacing: 0;
+  margin-top: 4px;
+}
+
+/* 通知カード：ドット枠の小さなウィンドウ */
+.pixel-ui #infoCard {
+  --f: var(--px-yellow);
+  top: 88px;
+  background: rgba(10, 14, 22, 0.92);
+  border: none;
+  border-radius: 0;
+  box-shadow:
+    0 -4px 0 0 var(--f),
+    0 4px 0 0 var(--f),
+    -4px 0 0 0 var(--f),
+    4px 0 0 0 var(--f),
+    8px 4px 0 0 var(--px-shadow),
+    4px 8px 0 0 var(--px-shadow);
+  transition: opacity 0.2s steps(2);
+}
+.pixel-ui #infoCard.trivia {
+  --f: var(--px-green);
+}
+.pixel-ui .info-title {
+  font-family: var(--px-jp);
+  font-weight: 400;
+  font-size: 17px;
+  color: var(--px-yellow);
+  text-shadow: 2px 2px 0 var(--px-dark);
+}
+.pixel-ui #infoCard.trivia .info-title {
+  color: var(--px-green);
+  text-shadow: 2px 2px 0 var(--px-dark);
+}
+.pixel-ui .info-desc {
+  font-family: var(--px-jp);
+  color: var(--px-white);
+}
+
+/* ログ：左に太い色帯のついた四角い行。出てくるときもカクカク */
+.pixel-ui #logArea {
+  left: 24px;
+  bottom: 24px;
+  width: 330px;
+  font-family: var(--px-jp);
+  font-size: 12px;
+}
+.pixel-ui .log-entry {
+  background: rgba(10, 14, 22, 0.85);
+  border-left: 6px solid var(--px-green);
+  border-radius: 0;
+  color: var(--px-green);
+  text-shadow: none;
+  box-shadow: 4px 4px 0 0 var(--px-shadow);
+  padding: 5px 10px 4px 10px;
+  margin-top: 8px;
+  animation: pxLogIn 0.2s steps(3);
+}
+.pixel-ui .log-entry.warning {
+  border-left-color: var(--px-yellow);
+  color: var(--px-yellow);
+  text-shadow: none;
+}
+.pixel-ui .log-entry.danger {
+  border-left-color: var(--px-red);
+  color: var(--px-red);
+  text-shadow: none;
+  animation:
+    pxLogIn 0.2s steps(3),
+    pxLogDanger 0.4s steps(1) infinite;
+}
+@keyframes pxLogIn {
+  from {
+    transform: translateX(-24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+/* ---------------- 点検図鑑（タイトル画面から開く） ---------------- */
+.pixel-ui .start-content {
+  position: relative;
+}
+.pixel-ui .codex-open-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-family: var(--px-head);
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--px-dark);
+  background: var(--px-cyan);
+  border: none;
+  border-radius: 0;
+  padding: 8px 10px 6px 10px;
+  cursor: pointer;
+  box-shadow:
+    0 -3px 0 0 var(--px-dark),
+    0 3px 0 0 var(--px-dark),
+    -3px 0 0 0 var(--px-dark),
+    3px 0 0 0 var(--px-dark),
+    3px 6px 0 0 var(--px-shadow),
+    inset -3px -3px 0 0 rgba(0, 0, 0, 0.2),
+    inset 3px 3px 0 0 rgba(255, 255, 255, 0.4);
+}
+.pixel-ui .codex-open-btn:hover {
+  background: #b3efff;
+  transform: translateY(-2px);
+}
+.pixel-ui .codex-open-jp {
+  display: block;
+  font-family: var(--px-jp);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.pixel-ui #codexScreen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 25; /* タイトル画面より上 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  color: var(--px-white);
+  background-color: rgba(4, 6, 10, 0.7);
+  background-image: repeating-conic-gradient(rgba(0, 0, 0, 0.55) 0 25%, transparent 0 50%);
+  background-size: 4px 4px;
+  font-family: var(--px-jp);
+  opacity: 0;
+  transition: opacity 0.3s steps(3);
+}
+.pixel-ui .codex-screen-content {
+  --f: var(--px-cyan);
+  background: var(--px-panel);
+  padding: 22px 36px 20px 36px;
+  border: none;
+  box-shadow:
+    0 -4px 0 0 var(--f),
+    0 4px 0 0 var(--f),
+    -4px 0 0 0 var(--f),
+    4px 0 0 0 var(--f),
+    8px 4px 0 0 var(--px-shadow),
+    4px 8px 0 0 var(--px-shadow);
+}
+.pixel-ui .codex-screen-content h2 {
+  font-family: var(--px-head);
+  font-weight: 400;
+  font-size: 22px;
+  letter-spacing: 2px;
+  color: var(--px-cyan);
+  text-shadow: 3px 3px 0 #0d4a5c;
+  margin: 0 0 8px 0;
+}
+.pixel-ui .codex-screen-content .subtitle {
+  font-family: var(--px-jp);
+  font-size: 15px;
+  color: var(--px-white);
+  margin-bottom: 18px;
+}
+.pixel-ui .codex-screen-body {
+  display: flex;
+  gap: 30px;
+  align-items: stretch;
+  text-align: left;
+}
+.pixel-ui .codex-screen-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 104px);
+  grid-auto-rows: 104px;
+  gap: 14px;
+  padding: 4px;
+}
+.pixel-ui .codex-screen-grid .codex-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+.pixel-ui .codex-screen-grid .codex-icon img {
+  width: 56px;
+  height: 56px;
+}
+.pixel-ui .codex-screen-grid .codex-name {
+  font-size: 14px;
+  margin-top: 4px;
+}
+.pixel-ui .codex-screen-grid .codex-cell.selected {
+  --f: var(--px-yellow);
+  transform: translateY(-3px);
+  background: rgba(255, 225, 77, 0.1);
+}
+.pixel-ui .codex-detail {
+  --f: #3a4458;
+  width: 320px;
+  box-sizing: border-box;
+  padding: 16px 18px;
+  background: var(--px-dark);
+  box-shadow:
+    0 -4px 0 0 var(--f),
+    0 4px 0 0 var(--f),
+    -4px 0 0 0 var(--f),
+    4px 0 0 0 var(--f);
+}
+.pixel-ui .codex-detail.found {
+  --f: var(--px-green);
+}
+.pixel-ui .codex-detail-img {
+  display: block;
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+  margin: 0 auto 10px auto;
+}
+.pixel-ui .codex-detail-name {
+  font-size: 19px;
+  color: var(--px-yellow);
+  text-shadow: 2px 2px 0 var(--px-dark);
+  text-align: center;
+}
+.pixel-ui .codex-detail:not(.found) .codex-detail-name {
+  color: #8a94a6;
+}
+.pixel-ui .codex-detail-kind {
+  font-size: 12px;
+  color: var(--px-cyan);
+  text-align: center;
+  margin: 4px 0 10px 0;
+}
+.pixel-ui .codex-detail-desc {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--px-white);
+  padding-top: 10px;
+  background: repeating-linear-gradient(90deg, #3a4458 0 2px, transparent 2px 6px) top / 100% 2px no-repeat;
+}
+.pixel-ui .codex-detail:not(.found) .codex-detail-desc {
+  color: #8a94a6;
+}
+.pixel-ui .codex-detail-count {
+  font-size: 12px;
+  color: var(--px-green);
+  margin-top: 10px;
+  text-align: right;
+}
+.pixel-ui .codex-screen-progress {
+  font-size: 14px;
+  color: var(--px-yellow);
+  margin: 18px 0 0 0;
+}
+.pixel-ui #codexScreen .menu-options {
+  margin-top: 16px;
+}
+.pixel-ui #codexScreen .help-text {
+  margin-top: 14px;
+}
+
+/* 体力はドローンを囲む円形のゲージ（キャンバスに描く）で見せるので、パネルの行は隠す */
+.pixel-ui .hp-item {
+  display: none;
+}
+/* 点検は QTE（ピント合わせ）になり、照準で狙う必要がないので照準は出さない */
+.pixel-ui .reticle {
+  display: none;
+}
+/* ---------------- 難易度の選択（タイトル画面） ---------------- */
+.pixel-ui .diff-select {
+  margin: 4px 0 6px 0;
+}
+.pixel-ui .diff-title {
+  font-family: var(--px-head);
+  font-size: 10px;
+  color: var(--px-cyan);
+  margin: 0 0 12px 0;
+}
+.pixel-ui .diff-hint {
+  font-family: var(--px-jp);
+  font-size: 12px;
+  color: #8a94a6;
+  margin-left: 10px;
+}
+.pixel-ui .diff-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+}
+.pixel-ui .diff-btn {
+  --f: #3a4458;
+  font-family: var(--px-head);
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--px-white);
+  background: #0c1018;
+  border: none;
+  border-radius: 0;
+  padding: 10px 12px 8px 12px;
+  width: 128px;
+  cursor: pointer;
+  box-shadow:
+    0 -3px 0 0 var(--f),
+    0 3px 0 0 var(--f),
+    -3px 0 0 0 var(--f),
+    3px 0 0 0 var(--f),
+    3px 6px 0 0 var(--px-shadow);
+}
+.pixel-ui .diff-jp {
+  display: block;
+  font-family: var(--px-jp);
+  font-size: 13px;
+  margin-top: 5px;
+}
+.pixel-ui .diff-btn.selected {
+  --f: var(--px-dark);
+  color: var(--px-dark);
+  transform: translateY(-2px);
+}
+.pixel-ui #diff-easy.selected {
+  background: var(--px-green);
+}
+.pixel-ui #diff-normal.selected {
+  background: var(--px-yellow);
+}
+.pixel-ui #diff-hard.selected {
+  background: var(--px-red);
+}
+.pixel-ui .diff-note {
+  font-family: var(--px-jp);
+  font-size: 13px;
+  color: var(--px-white);
+  margin: 14px 0 0 0;
+  min-height: 1.4em;
+}
+
+@keyframes pxLogDanger {
+  0%,
+  100% {
+    border-left-color: var(--px-red);
+  }
+  50% {
+    border-left-color: var(--px-white);
+  }
+}
