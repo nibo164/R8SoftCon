@@ -2,18 +2,16 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <title>Drone Inspection Game (Pixel)</title>
+    <title>Drone Inspection Game</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Orbitron:wght@400;700&family=Press+Start+2P&family=Share+Tech+Mono&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
-    <!-- ドット絵版だけの見た目（style.css を上書きする） -->
-    <link rel="stylesheet" href="pixel.css" />
   </head>
-  <body class="pixel-ui">
+  <body>
     <div id="hud">
       <!-- 左側パネル: テレメトリ（ドローン状態） -->
       <div class="hud-panel left-panel">
@@ -24,17 +22,12 @@
             >ONLINE</span
           >
         </div>
-        <!-- 体力はドローンを囲む円で表示するので、この行は隠す（数値の更新処理のため要素は残す） -->
-        <div class="hud-item hp-item">
+        <div class="hud-item">
           <span class="label">INTEGRITY:</span>
           <div class="bar-container">
             <div id="hpBar" class="bar-fill red-bar" style="width: 100%"></div>
           </div>
           <span id="hp" class="value">100%</span>
-        </div>
-        <div class="hud-item">
-          <span class="label">MODE:</span>
-          <span id="modeLabel" class="value yellow-text">NORMAL</span>
         </div>
         <div class="hud-item" id="padStatusItem" style="display: none">
           <span class="label">INPUT DEVICE:</span>
@@ -50,7 +43,7 @@
           <span id="score" class="value yellow-text">0</span>
         </div>
         <div class="hud-item">
-          <span class="label">INSPECTIONS:</span>
+          <span class="label">ANOMALIES INSPECTED:</span>
           <span id="inspected" class="value green-text">0 / 0</span>
         </div>
         <div class="hud-item">
@@ -95,98 +88,32 @@
     <!-- スタート待機画面 -->
     <div id="startScreen">
       <div class="start-content">
-        <!-- 点検図鑑を開くボタン（C キー / ゲームパッド Y でも開く） -->
-        <button id="codexOpenBtn" class="codex-open-btn">
-          CODEX<span class="codex-open-jp">図鑑 [C]</span>
-        </button>
-        <!-- ゲーム内と同じドローンのドット絵（pixel.js で描き込む） -->
-        <img id="titleDrone" class="title-drone" alt="" />
         <h1>DRAIN DIVE</h1>
-        <p class="subtitle pixel-edition">- PIXEL EDITION -</p>
+        <p class="subtitle">SYSTEMS READY</p>
         <div class="jp-intro">
           <p>きみは「下水道点検ドローン」のパイロット！</p>
-          <p>点検ポイント <strong>！</strong> に近づくとスローモーション。</p>
+          <p>まちの地下を通る下水道管の中を飛んで、</p>
           <p>
-            輪がピントの枠に重なった瞬間に <strong>ボタンで撮影</strong> しよう！
+            ひび割れ・腐食などの異常を <strong>クリックで点検</strong> しよう！
           </p>
-          <p>曲がりくねる管と、大雨の増水に気をつけて</p>
-          <p>300m 先のゴールを目指せ！</p>
+          <p>壁や障害物にぶつからずに 300m 先のゴールを目指せ！</p>
         </div>
         <div class="instructions">
-          <p>
-            <span class="key-label">MOVE</span><span class="key">WASD</span
-            ><span class="key">←↑↓→</span>
-            <span class="key-label">INSPECT</span><span class="key">SPACE</span
-            ><span class="key">CLICK</span>
-          </p>
-          <p>
-            <span class="key-label">PAUSE</span><span class="key">ESC</span>
-            <span class="key-label">SOUND</span><span class="key">M</span>
-          </p>
+          <p>MOVE: [WASD] / [ARROW KEYS]&nbsp;&nbsp;INSPECT: [CLICK]</p>
+          <p>PAUSE: [ESC]&nbsp;&nbsp;SOUND ON/OFF: [M]</p>
         </div>
         <div class="pad-instructions" id="padInstructions">
-          <p class="pad-title">GAMEPAD DETECTED</p>
+          <p class="pad-title">🎮 GAMEPAD DETECTED</p>
           <p>
-            <span class="key-label">MOVE</span><span class="key">左スティック</span
-            ><span class="key">十字キー</span>
-            <span class="key-label">INSPECT</span><span class="key">A</span
-            ><span class="key">R2</span>
+            MOVE: [左スティック] / [十字キー]&nbsp;&nbsp;INSPECT: [A] / [R2]
           </p>
-          <p>
-            <span class="key-label">PAUSE</span><span class="key">START</span>
-            輪が重なった瞬間に A で撮影！
-          </p>
-        </div>
-        <!-- 難易度の選択（←→ / 十字キーで選ぶ。クリックするとそのまま発進） -->
-        <div class="diff-select">
-          <p class="diff-title">
-            SELECT MODE<span class="diff-hint">← → でえらぶ</span>
-          </p>
-          <div class="diff-buttons">
-            <button id="diff-easy" class="diff-btn">
-              EASY<span class="diff-jp">かんたん</span>
-            </button>
-            <button id="diff-normal" class="diff-btn selected">
-              NORMAL<span class="diff-jp">ふつう</span>
-            </button>
-            <button id="diff-hard" class="diff-btn">
-              HARD<span class="diff-jp">むずかしい</span>
-            </button>
-          </div>
-          <p class="diff-note" id="diffNote"></p>
+          <p>PAUSE: [START]&nbsp;&nbsp;画面中央のレティクルで狙って点検！</p>
         </div>
         <div class="instructions">
           <p class="blink-text" id="startPrompt">
             PRESS [SPACE] TO LAUNCH DRONE
           </p>
         </div>
-      </div>
-    </div>
-
-    <!-- 点検図鑑（タイトル画面から開く） -->
-    <div id="codexScreen" style="display: none">
-      <div class="codex-screen-content">
-        <h2>INSPECTION CODEX</h2>
-        <p class="subtitle">点検図鑑</p>
-        <div class="codex-screen-body">
-          <div class="codex-screen-grid" id="codexScreenGrid"></div>
-          <div class="codex-detail" id="codexDetail">
-            <img id="codexDetailImg" class="codex-detail-img" alt="" />
-            <div class="codex-detail-name" id="codexDetailName"></div>
-            <div class="codex-detail-kind" id="codexDetailKind"></div>
-            <div class="codex-detail-desc" id="codexDetailDesc"></div>
-            <div class="codex-detail-count" id="codexDetailCount"></div>
-          </div>
-        </div>
-        <p class="codex-screen-progress" id="codexScreenProgress"></p>
-        <div class="menu-options">
-          <button id="codexCloseBtn" class="menu-btn">
-            BACK<span class="menu-btn-jp">タイトルへもどる</span>
-          </button>
-        </div>
-        <p class="help-text">
-          [←][→][↑][↓] / 十字キーでえらぶ　[ESC] / [B] でもどる
-        </p>
       </div>
     </div>
 
@@ -220,7 +147,7 @@
     <div id="clearScreen" style="display: none">
       <div class="clear-content">
         <h2>MISSION ACCOMPLISHED</h2>
-        <p class="subtitle" id="clearSubtitle">点検完了レポート（300m）</p>
+        <p class="subtitle">点検完了レポート (300m)</p>
 
         <div class="clear-columns">
           <!-- 左カラム: 成績 -->
@@ -229,17 +156,17 @@
             <p id="rankTitle" class="rank-title">認定: マスター点検技師</p>
             <div class="result-stats">
               <div class="stat-item">
-                <span class="stat-label">点検成功:</span>
+                <span class="stat-label">発見した異常:</span>
                 <span id="finalFound" class="stat-value green-text"
                   >0 / 0 件</span
                 >
               </div>
               <div class="stat-item">
-                <span class="stat-label">点検ミス:</span>
+                <span class="stat-label">見逃した異常:</span>
                 <span id="finalMissed" class="stat-value red-text">0 件</span>
               </div>
               <div class="stat-item">
-                <span class="stat-label">成功率:</span>
+                <span class="stat-label">発見率:</span>
                 <span id="finalRate" class="stat-value yellow-text">0%</span>
               </div>
               <div class="stat-item">
@@ -256,7 +183,6 @@
               </div>
             </div>
             <p id="rankComment" class="rank-comment"></p>
-            <div class="result-trivia" id="resultTrivia"></div>
           </div>
 
           <!-- 右カラム: 土木PR（守った暮らし＋点検図鑑） -->
@@ -320,26 +246,7 @@
 
     <canvas id="gameCanvas"></canvas>
 
-    <!--
-      ゲーム本体。普通の <script> なので、変数や関数はファイルをまたいで共有される。
-      読み込んだ時点で動く処理があるため、この順番を変えないこと（前のファイルの中身を後のファイルが使う）
-    -->
-    <script src="js/screen.js"></script>
-    <script src="js/audio.js"></script>
-    <script src="js/data.js"></script>
-    <script src="js/pixelart.js"></script>
-    <script src="js/objects.js"></script>
-    <script src="js/course.js"></script>
-    <script src="js/fx.js"></script>
-    <script src="js/render-tunnel.js"></script>
-    <script src="js/render-world.js"></script>
-    <script src="js/render-overlay.js"></script>
-    <script src="js/render-city.js"></script>
-    <script src="js/state.js"></script>
-    <script src="js/input.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/qte.js"></script>
-    <script src="js/game.js"></script>
-    <script src="js/main.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="script.js"></script>
   </body>
 </html>
