@@ -435,8 +435,10 @@ const CODEX_ORDER = [
 ];
 
 // 図鑑の発見記録
-//   codexSession: ページを開いてからの累計（連続プレイでコンプリートを狙わせる）
+//   codexSession: これまでの累計。ブラウザ（localStorage）に保存し、次に開いたときも残る
 //   codexRun:     今回のプレイでの発見数
+//   撮影用：URL に ?codex=all を付けると全種類を発見済みに、?codex=reset を付けると記録を消す
+const CODEX_STORAGE_KEY = "drainDive.codex.v1";
 const codexSession = {};
 const codexRun = {};
 CODEX_ORDER.forEach((k) => {
@@ -444,10 +446,47 @@ CODEX_ORDER.forEach((k) => {
   codexRun[k] = 0;
 });
 
+// 保存できない環境（プライベートモードなど）でもゲームは動くよう、失敗は無視する
+function loadCodex() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CODEX_STORAGE_KEY) || "{}");
+    CODEX_ORDER.forEach((k) => {
+      const n = Number(saved[k]);
+      if (Number.isFinite(n) && n > 0) codexSession[k] = Math.floor(n);
+    });
+  } catch (e) {
+    // 読めなければ空の図鑑から始める
+  }
+}
+function saveCodex() {
+  try {
+    localStorage.setItem(CODEX_STORAGE_KEY, JSON.stringify(codexSession));
+  } catch (e) {
+    // 保存できなくても、このページを開いている間の記録は残る
+  }
+}
+loadCodex();
+(function applyCodexParam() {
+  let mode = null;
+  try {
+    mode = new URLSearchParams(location.search).get("codex");
+  } catch (e) {
+    return;
+  }
+  if (mode === "all") {
+    CODEX_ORDER.forEach((k) => (codexSession[k] = Math.max(1, codexSession[k])));
+    saveCodex();
+  } else if (mode === "reset") {
+    CODEX_ORDER.forEach((k) => (codexSession[k] = 0));
+    saveCodex();
+  }
+})();
+
 function recordCodex(type) {
   if (!(type in codexSession)) return;
   codexSession[type]++;
   codexRun[type]++;
+  saveCodex();
 }
 
 // マンホール通過時に表示する土木豆知識
@@ -1383,6 +1422,7 @@ let droneVisible = true; // 墜落したら false
 // ============================================================
 // 演出（パーティクル・フラッシュ・文字・スピード線など）
 // ============================================================
+const CRACK_TIME = 1.8; // 画面のヒビが消えるまでの時間（秒）
 const FX = {
   parts: [], // 破片・しぶき（ワールド座標）
   rings: [], // 点検したときの広がる輪（画面座標）
@@ -1442,22 +1482,60 @@ const FX = {
   showBanner(text, sub, color, dur = 1.6, scale = 4) {
     this.banner = { text, sub, color, dur, scale, age: 0 };
   },
-  // 画面の端から内側へ走るヒビ
+  // 画面のヒビ：ドローンのあたりの衝突点から、ガラスが割れたように放射状に広がる
+  //   主な割れ目（太さ2）が画面の端まで伸び、枝分かれと蜘蛛の巣状の割れ目（太さ1）をつなぐ
   crack() {
     const W = SCREEN_W;
     const H = SCREEN_H;
-    const side = randInt(0, 3);
-    let x = side === 0 ? 0 : side === 1 ? W - 1 : randInt(0, W - 1);
-    let y = side === 2 ? 0 : side === 3 ? H - 1 : randInt(0, H - 1);
-    const pts = [[x, y]];
-    let ang = Math.atan2(H / 2 - y, W / 2 - x);
-    for (let i = 0; i < 7; i++) {
-      ang += (Math.random() - 0.5) * 0.9;
-      x += Math.cos(ang) * randInt(6, 14);
-      y += Math.sin(ang) * randInt(6, 14);
-      pts.push([x, y]);
+    // 衝突点：ドローン（画面の中央やや下）のまわり
+    const cx = W / 2 + randInt(-50, 50);
+    const cy = H / 2 + 25 + randInt(-25, 12);
+    const lines = [];
+    const rays = [];
+    const nRay = randInt(7, 10);
+    const base = Math.random() * TAU;
+    for (let r = 0; r < nRay; r++) {
+      let ang = base + (r / nRay) * TAU + (Math.random() - 0.5) * 0.4;
+      let x = cx;
+      let y = cy;
+      const pts = [[x, y]];
+      for (let s = 0; s < 16; s++) {
+        ang += (Math.random() - 0.5) * 0.5;
+        const len = randInt(12, 22);
+        x += Math.cos(ang) * len;
+        y += Math.sin(ang) * len;
+        pts.push([x, y]);
+        // 枝分かれ
+        if (s >= 1 && Math.random() < 0.35) {
+          let bx = x;
+          let by = y;
+          let ba = ang + (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5);
+          const bpts = [[bx, by]];
+          for (let b = 0; b < randInt(2, 4); b++) {
+            ba += (Math.random() - 0.5) * 0.5;
+            bx += Math.cos(ba) * randInt(8, 14);
+            by += Math.sin(ba) * randInt(8, 14);
+            bpts.push([bx, by]);
+          }
+          lines.push({ pts: bpts, size: 1 });
+        }
+        if (x < -10 || x > W + 10 || y < -10 || y > H + 10) break;
+      }
+      rays.push(pts);
+      lines.push({ pts: pts, size: 2 });
     }
-    this.cracks.push({ pts: pts, age: 0 });
+    // 蜘蛛の巣状の割れ目：となりの割れ目どうしを、中心からの同じ段でつなぐ
+    [1, 2, 4].forEach((level) => {
+      for (let r = 0; r < nRay; r++) {
+        const a = rays[r][level];
+        const b = rays[(r + 1) % nRay][level];
+        if (!a || !b || Math.random() < 0.25) continue;
+        const mx = (a[0] + b[0]) / 2 + randInt(-4, 4);
+        const my = (a[1] + b[1]) / 2 + randInt(-4, 4);
+        lines.push({ pts: [a, [mx, my], b], size: 1 });
+      }
+    });
+    this.cracks.push({ lines: lines, cx: cx, cy: cy, age: 0 });
   },
 
   // dt: 実時間（文字・フラッシュなど画面の演出） / wdt: ゲーム内の時間（破片・スピード線。スロー中は遅くなる）
@@ -1477,7 +1555,7 @@ const FX = {
     }
     this.rings = this.rings.filter((r) => (r.age += dt) < 0.4);
     this.pops = this.pops.filter((p) => (p.age += dt) < 0.9);
-    this.cracks = this.cracks.filter((c) => (c.age += dt) < 1.4);
+    this.cracks = this.cracks.filter((c) => (c.age += dt) < CRACK_TIME);
     this.flashA = Math.max(0, this.flashA - dt * 3.5);
     this.comboPop = Math.max(0, this.comboPop - dt);
     if (this.banner && (this.banner.age += dt) > this.banner.dur) this.banner = null;
@@ -2010,6 +2088,9 @@ function renderWorld(now) {
     ctx.restore();
   }
 
+  // 体力ゲージ（ドローンを囲む円）
+  if (dp && droneVisible && isGameStarted && !isGameOver) drawHpRing(dp, now);
+
   drawParticles(0, CAM_BACK + 0.5);
 
   // 点検したときの広がる輪
@@ -2036,11 +2117,72 @@ function renderWorld(now) {
 // ============================================================
 // 描画：画面に重ねる演出（スピード線・コンボ・大きな文字・フラッシュなど）
 // ============================================================
-// ドット単位の直線
-function pixelLine(x0, y0, x1, y1) {
+// ------------------------------------------------------------
+// 体力ゲージ：ドローンを囲む 24 個に区切った輪
+//   残りの体力ぶんだけ色がつく（緑 → 黄 → 赤。少ないと点滅）。上から時計回りに減る
+//   ダメージの瞬間は白く光って揺れ、回復は緑に光る。変化したあとしばらく数値を出す
+// ------------------------------------------------------------
+const HP_SEGMENTS = 24;
+let hpLastSeen = 100;
+let hpHitUntil = 0; // この時刻まで「ダメージで白く光る」
+let hpHealUntil = 0; // この時刻まで「回復で緑に光る」
+let hpLabelUntil = 0; // この時刻まで数値を出す
+
+function drawHpRing(dp, now) {
+  // 体力の変化を見つけて演出のタイマーを入れる
+  if (hp < hpLastSeen - 0.05) {
+    if (hpLastSeen - hp > 2) hpHitUntil = now + 250; // 大きなダメージだけ光らせる（壁のこすりは光らせない）
+    hpLabelUntil = now + 1500;
+  } else if (hp > hpLastSeen + 0.05) {
+    hpHealUntil = now + 500;
+    hpLabelUntil = now + 1500;
+  }
+  hpLastSeen = hp;
+
+  const safeHp = Math.max(0, Math.min(100, hp));
+  const hit = now < hpHitUntil;
+  const heal = now < hpHealUntil;
+  const r = Math.max(14, Math.round(DRONE_W * dp.s * 0.62));
+  const jx = hit ? randInt(-1, 1) : 0;
+  const jy = hit ? randInt(-1, 1) : 0;
+  const cx = Math.round(dp.x) + jx;
+  const cy = Math.round(dp.y) + jy;
+
+  let color = safeHp > 50 ? "#6dff7a" : safeHp > 20 ? "#ffe14d" : "#ff4d6d";
+  if (safeHp <= 20 && Math.floor(now / 150) % 2 === 0) color = "#ff9aa9";
+  if (heal) color = "#b8ffc0";
+  if (hit) color = "#ffffff";
+
+  const filled = Math.ceil((safeHp / 100) * HP_SEGMENTS);
+  const seg = TAU / HP_SEGMENTS;
+  const gap = 0.07; // 区切りのすき間（ラジアン）
+  const step = 1 / r; // ドットの間隔（ラジアン）
+  for (let pass = 0; pass < 2; pass++) {
+    // 1回目：暗い影（明るい背景でも見えるように） / 2回目：本体
+    for (let j = 0; j < HP_SEGMENTS; j++) {
+      const on = j < filled;
+      if (pass === 0) ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+      else ctx.fillStyle = on ? color : "rgba(58, 68, 88, 0.85)";
+      const a0 = -Math.PI / 2 + j * seg + gap / 2;
+      const a1 = a0 + seg - gap;
+      for (let a = a0; a <= a1; a += step) {
+        const x = Math.round(cx + Math.cos(a) * r) - 1 + (pass === 0 ? 1 : 0);
+        const y = Math.round(cy + Math.sin(a) * r) - 1 + (pass === 0 ? 1 : 0);
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+  }
+
+  if (now < hpLabelUntil) {
+    drawText(`${Math.ceil(safeHp)}%`, cx, cy + r + 4, 1, hit ? "#ffffff" : color);
+  }
+}
+
+// ドット単位の直線（size でドットの大きさ＝線の太さ）
+function pixelLine(x0, y0, x1, y1, size = 1) {
   const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
   for (let k = 0; k <= n; k++) {
-    ctx.fillRect(Math.round(x0 + ((x1 - x0) * k) / n), Math.round(y0 + ((y1 - y0) * k) / n), 1, 1);
+    ctx.fillRect(Math.round(x0 + ((x1 - x0) * k) / n), Math.round(y0 + ((y1 - y0) * k) / n), size, size);
   }
 }
 
@@ -2251,13 +2393,26 @@ function renderOverlay(now) {
     }
   }
 
-  // 衝突で入った画面のヒビ
+  // 衝突で入った画面のヒビ（しばらくはっきり見せ、最後はチカチカしながら消える）
   FX.cracks.forEach((c) => {
-    const a = Math.max(0, 1 - c.age / 1.4);
-    ctx.fillStyle = `rgba(230, 245, 255, ${a})`;
-    for (let k = 1; k < c.pts.length; k++) {
-      pixelLine(c.pts[k - 1][0], c.pts[k - 1][1], c.pts[k][0], c.pts[k][1]);
-    }
+    const left = CRACK_TIME - c.age;
+    if (left < 0.5 && Math.floor(now / 60) % 2 === 0) return;
+    const a = left < 0.5 ? left / 0.5 : 1;
+    const drawLines = (dx, dy) => {
+      c.lines.forEach((l) => {
+        for (let k = 1; k < l.pts.length; k++) {
+          pixelLine(l.pts[k - 1][0] + dx, l.pts[k - 1][1] + dy, l.pts[k][0] + dx, l.pts[k][1] + dy, l.size);
+        }
+      });
+    };
+    // 暗い影を少しずらして描いてから、白い割れ目を描く（明るい場面でも見えるように）
+    ctx.fillStyle = `rgba(0, 0, 0, ${0.55 * a})`;
+    drawLines(1, 1);
+    ctx.fillStyle = `rgba(235, 248, 255, ${0.95 * a})`;
+    drawLines(0, 0);
+    // 衝突点の白い星
+    ctx.fillStyle = `rgba(255, 255, 255, ${a})`;
+    ctx.fillRect(Math.round(c.cx) - 2, Math.round(c.cy) - 2, 5, 5);
   });
 
   // フラッシュ（点検は白、衝突は赤）
@@ -2479,7 +2634,7 @@ function normalizeKey(e) {
 }
 // ゲーム開始（スペースキー / ゲームパッドのAボタン から呼ばれる）
 function startGame() {
-  if (isGameStarted || isGameOver) return;
+  if (isGameStarted || isGameOver || codexOpen) return;
   isGameStarted = true;
   // 選んだ難易度でコースを並べ直す（毎回ちがう配置になる）
   placeObjects(diff);
@@ -2507,6 +2662,22 @@ function startGame() {
 
 window.addEventListener("keydown", (e) => {
   keys[normalizeKey(e)] = true;
+  // 図鑑を開いているあいだは、図鑑の操作だけ受け付ける
+  if (codexOpen) {
+    const k = normalizeKey(e);
+    if (k === "ArrowLeft" || k === "a") moveCodexSel(-1, 0);
+    else if (k === "ArrowRight" || k === "d") moveCodexSel(1, 0);
+    else if (k === "ArrowUp" || k === "w") moveCodexSel(0, -1);
+    else if (k === "ArrowDown" || k === "s") moveCodexSel(0, 1);
+    else if (k === "Escape" || k === "c" || k === "Backspace") closeCodexScreen();
+    e.preventDefault();
+    return;
+  }
+  // タイトル画面：C で図鑑を開く
+  if (!isGameStarted && !isGameOver && normalizeKey(e) === "c") {
+    openCodexScreen();
+    return;
+  }
   // タイトル画面：←→（A・D）で難易度を選ぶ
   if (!isGameStarted && !isGameOver) {
     const k = normalizeKey(e);
@@ -2648,6 +2819,7 @@ const Pad = {
     const r2Pressed = this.pressed(pad, 7);
     const startPressed = this.pressed(pad, 9);
     const bPressed = this.pressed(pad, 1);
+    const yPressed = this.pressed(pad, 3);
     // メニュー用の上下（-1: 上 / 1: 下）。スティックは大きく倒したときだけ
     const menuDir = ay < -0.5 ? -1 : ay > 0.5 ? 1 : 0;
     const menuMoved = menuDir !== 0 && menuDir !== this.prevMenuDir;
@@ -2664,8 +2836,17 @@ const Pad = {
 
     if (!isGameStarted && !isGameOver) {
       // 十字キー / スティックの左右で難易度を選び、A で発進
-      if (menuMovedX) selectDifficulty(menuDirX);
-      if (aPressed) startGame();
+      // Y で点検図鑑を開く（図鑑の中は十字キーで選び、B / Y / START でもどる）
+      if (codexOpen) {
+        if (menuMovedX) moveCodexSel(menuDirX, 0);
+        if (menuMoved) moveCodexSel(0, menuDir);
+        if (bPressed || yPressed || startPressed) closeCodexScreen();
+      } else if (yPressed) {
+        openCodexScreen();
+      } else {
+        if (menuMovedX) selectDifficulty(menuDirX);
+        if (aPressed) startGame();
+      }
     } else if (isGameOver) {
       // クリア／ゲームオーバー画面：Aボタンでタイトルへ戻る
       // （結果画面が出てから。演出の途中で押してもタイトルへは戻らない）
@@ -2855,6 +3036,8 @@ function resetGame() {
   qtePerfect = 0;
   qteTargets.forEach((o) => (o.qteStarted = false));
   tutorialPending = false;
+  hpLastSeen = 100;
+  hpLabelUntil = 0;
 
   updatePauseBtn();
   blurActiveButton();
@@ -3496,6 +3679,128 @@ function renderCodex() {
     }
   }
 }
+
+// ============================================================
+// タイトル画面から開く点検図鑑
+//   左：6種類のマス（未発見はシルエットと「？？？」） / 右：選んだものの詳しい説明
+//   開く：C キー / ゲームパッド Y / 右上のボタン
+//   選ぶ：←→↑↓・十字キー・マウス　もどる：ESC・C / B・Y / もどるボタン
+// ============================================================
+let codexOpen = false;
+let codexSel = 0;
+const CODEX_COLS = 3;
+const CODEX_KIND_TEXT = {
+  corrosion: "壁の異常（撮影して記録する）",
+  crack: "壁の異常（撮影して記録する）",
+  rebar: "壁の異常（撮影して記録する）",
+  leak: "障害物（撮影して取りのぞく）",
+  sediment: "障害物（撮影して取りのぞく）",
+  roots: "障害物（撮影して取りのぞく）",
+};
+const codexScreenEl = document.getElementById("codexScreen");
+
+function openCodexScreen() {
+  if (codexOpen || isGameStarted || isGameOver || !codexScreenEl) return;
+  codexOpen = true;
+  codexSel = 0;
+  buildCodexScreen();
+  codexScreenEl.style.display = "flex";
+  codexScreenEl.offsetHeight; // リフロー強制
+  codexScreenEl.style.opacity = 1;
+  AudioSys.init();
+  AudioSys.resume();
+  AudioSys.tone(660, 990, 0.1, "square", 0.08);
+}
+
+function closeCodexScreen() {
+  if (!codexOpen) return;
+  codexOpen = false;
+  blurActiveButton();
+  codexScreenEl.style.opacity = 0;
+  setTimeout(() => {
+    if (!codexOpen) codexScreenEl.style.display = "none";
+  }, 300);
+  AudioSys.tone(990, 660, 0.1, "square", 0.08);
+}
+
+// 選択を動かす（左右は1マス、上下は1段。端まで行くと反対側へ回る）
+function moveCodexSel(dx, dy) {
+  const n = CODEX_ORDER.length;
+  const i = (((codexSel + dx + dy * CODEX_COLS) % n) + n) % n;
+  if (i === codexSel) return;
+  codexSel = i;
+  updateCodexSelection();
+  AudioSys.tone(880, 880, 0.05, "square", 0.06);
+}
+
+function buildCodexScreen() {
+  const grid = document.getElementById("codexScreenGrid");
+  grid.innerHTML = "";
+  let discovered = 0;
+  CODEX_ORDER.forEach((key, i) => {
+    const info = ANOMALY_INFO[key];
+    const found = codexSession[key] > 0;
+    if (found) discovered++;
+
+    const cell = document.createElement("div");
+    cell.className = `codex-cell${found ? " found" : ""}`;
+    const icon = document.createElement("div");
+    icon.className = "codex-icon";
+    const img = document.createElement("img");
+    img.src = codexIconURL(key, found);
+    img.alt = found ? info.short : "？";
+    icon.appendChild(img);
+    cell.appendChild(icon);
+    const name = document.createElement("div");
+    name.className = "codex-name";
+    name.innerText = found ? info.short : "？？？";
+    cell.appendChild(name);
+
+    cell.addEventListener("mouseenter", () => {
+      if (codexSel === i) return;
+      codexSel = i;
+      updateCodexSelection();
+    });
+    grid.appendChild(cell);
+  });
+
+  const prog = document.getElementById("codexScreenProgress");
+  if (prog) {
+    prog.innerText =
+      discovered >= CODEX_ORDER.length
+        ? `★ コンプリート！ ${discovered} / ${CODEX_ORDER.length} 種類`
+        : `発見 ${discovered} / ${CODEX_ORDER.length} 種類　点検ポイント「！」で撮影して集めよう`;
+  }
+  updateCodexSelection();
+}
+
+function updateCodexSelection() {
+  const grid = document.getElementById("codexScreenGrid");
+  [...grid.children].forEach((c, i) => c.classList.toggle("selected", i === codexSel));
+
+  const key = CODEX_ORDER[codexSel];
+  const info = ANOMALY_INFO[key];
+  const count = codexSession[key];
+  const found = count > 0;
+  document.getElementById("codexDetail").classList.toggle("found", found);
+  document.getElementById("codexDetailImg").src = codexIconURL(key, found);
+  document.getElementById("codexDetailName").innerText = found ? info.name : "？？？";
+  document.getElementById("codexDetailKind").innerText = CODEX_KIND_TEXT[key];
+  document.getElementById("codexDetailDesc").innerText = found
+    ? info.desc
+    : "まだ見つけていない。点検ポイント「！」で撮影すると、ここに記録されるよ。";
+  document.getElementById("codexDetailCount").innerText = found
+    ? `これまでに ${count} 回 点検した`
+    : "";
+}
+
+document.getElementById("codexOpenBtn").addEventListener("click", () => {
+  blurActiveButton();
+  openCodexScreen();
+});
+document.getElementById("codexCloseBtn").addEventListener("click", () => {
+  closeCodexScreen();
+});
 
 function showClearScreen() {
   updatePauseBtn();
