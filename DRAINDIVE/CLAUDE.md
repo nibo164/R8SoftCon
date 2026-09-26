@@ -42,13 +42,35 @@
 
 ## 動かし方
 
+この開発機には **Python / Node が入っていない**。確認用のサーバーは PowerShell だけで動く `tools/serve.ps1` を使う（リポジトリのルートで実行）。
+
 ```
-python3 -m http.server 8000
+powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 # → http://localhost:8000/（ドット絵版。index.html） / http://localhost:8000/3d.html（3D版）
 ```
 
-変更後は最低限 `node --check script.js`（ドット絵版は `js/*.js` をそれぞれ）で構文チェックする。
-この開発機には node / python が入っていないため、その場合はローカルサーバーを立ててブラウザで読み込み、コンソールにエラーが出ないことで確認する。
+- `-Root` で配信するフォルダ、`-Port` でポート番号を変えられる（省略時は `DRAINDIVE` フォルダ・8000番）。キャッシュを無効にしているので、ファイルを直したら再読み込みするだけで反映される
+- Claude Code のブラウザで確認するときは、リポジトリのルートの `.claude/launch.json` に次の設定を置いて `preview_start` する（作業が終わったら消してよい）
+  ```json
+  { "version": "0.0.1", "configurations": [ { "name": "drain-dive", "runtimeExecutable": "powershell.exe",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "DRAINDIVE/tools/serve.ps1"], "port": 8000 } ] }
+  ```
+- `serve.ps1` は **BOM 付きの UTF-8** で保存する。Windows PowerShell 5.1 は BOM なしの UTF-8 を Shift-JIS として読むため、日本語のコメントが化けて構文エラーになる
+- Python / Node がある環境なら `python3 -m http.server 8000` でもよい。構文チェックは `node --check`（ドット絵版は `js/*.js` をそれぞれ）。ない場合は、ブラウザで読み込んでコンソールにエラーが出ないことで確認する
+
+## 開発メモ（確認・テストのやり方）
+
+- **Claude Code のブラウザのプレビューが非表示のときは、`requestAnimationFrame` が止まる**。メインループも CSS アニメーションも進まないので、スクリーンショットが古い画面のままになったり、点滅がずっと消えたままに見えたりする
+- **フレームを手で進めるとき**は、先に本来のループを止める。止めずに `animate()` を直接呼ぶと、呼ぶたびに `requestAnimationFrame` が予約され、ループが何重にも動いてページが重くなる
+  ```js
+  window.realAnimate = animate;
+  window.animate = () => {}; // 本来のループを止める（トップレベルの関数なので差し替えられる）
+  window.step = (n) => { for (let i = 0; i < n; i++) { lastFrameTime = performance.now() - 1000 / 60; realAnimate(); } };
+  ```
+- **長い通しプレイを速く回すとき**は、`renderFrame` を「描画用カメラ位置だけ更新する関数」に差し替えて描画を省く（`renderCam` と `updateBend` だけ更新しないと、`project` を使う処理がずれる）
+- **変更の前後で動きが変わっていないかを比べるとき**は、`Math.random` を決まった並びの乱数（mulberry32 など）に、`performance.now` を 1/60 秒ずつ進む偽の時計に差し替えてから、3つの難易度 ×「毎回ぴったり押す／何も押さない」を通しで走らせる。フレーム数・成功数・衝突数・体力・スコア・点検ポイントの配置が一致すれば同じ動き（ファイル分割のときに使った）
+- テクスチャなどはページを開いたときの乱数で作られるので、画面のピクセルそのものを分割前後で比べることはできない
+- 点検図鑑の記録は localStorage に残るので、テストのあとは `index.html?codex=reset` で消しておく
 
 ## script.js の構成
 
@@ -137,12 +159,16 @@ python3 -m http.server 8000
 2. **難易度の調整**：`DIFFICULTIES` の各数値、遠心力の強さ（`animate` 内の係数 0.08）、ランクのしきい値は、実際に遊んで調整が必要
 3. **CDN 依存**（3D版のみ）：Three.js と Google Fonts を CDN から読んでいる。撮影時にネットにつながっていれば問題ない
 
-## 未決定事項
+## 未決定事項・保留中
 
 - 動画・ポスターのための追加実装（撮影モード、技術の見える化モード、高解像度スクリーンショットなど）を行うか、どこまで行うか
+- **スマホ対応（保留）**：進める場合の方針は相談済み。①ドラッグで操縦（どこでもスティック）＋タップで撮影、②横向き専用（縦向きでは「横向きにしてね」と表示）、③タイトル・結果・図鑑の画面を画面の大きさに合わせて縮小し、HUD も小さくする、④スマホでは内部の解像度を下げる（縦180 → 120ドット）。実機（iPhone / Android）での確認が必要。作業量は1日前後
+- **GitHub Pages での公開**：ドット絵版を `index.html` にした。GitHub Pages はリポジトリのルートか `docs/` しか公開元に選べないため、ルートから公開すると URL は `https://<ユーザー名>.github.io/R8SoftCon/DRAINDIVE/` になる。無料で使うにはリポジトリを公開（public）にする必要がある。ポスターの QR コードはこの URL で作る
 
 ## 作業の進め方
 
 - 大きな変更は、先に方針を説明してから実装する
 - 見た目や操作感はブラウザで人が確認する必要がある。変更後に「何をどう確認すればよいか」を伝える
 - 1回の作業では1つの課題に絞る
+- ユーザーは作業の合間に、自分でコミット・PR のマージ・ファイルやフォルダの名前変更を行う（例：`DroneInspection` → `DRAINDIVE`）。**作業を始める前に `git status` と `git log` で最新の状態を確かめる**
+- ブランチを切って作業し、PR で `main` に取り込む。コミットやブランチ作成は、指示があったときだけ行う
