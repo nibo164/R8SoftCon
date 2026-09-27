@@ -44,5 +44,9 @@ let speedFactor = 0; // 0〜1：スピード演出の強さ
 let currentZone = 0;
 let floodWarned = false;
 let siphonShown = false; // 伏越し（川の下をくぐる区間）の説明を出したか
+
+// 重さの確認用：URL に ?fps をつけると画面の右下にフレームレートを出す
+const SHOW_FPS = new URLSearchParams(location.search).has("fps");
+let fpsSmooth = 60;
 let sirenTime = 0; // 大雨警報の警告灯を出す残り時間
 

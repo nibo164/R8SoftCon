@@ -37,14 +37,22 @@ const UI_BASE_H = 720;
 function setupScreen() {
   const winW = window.innerWidth;
   const winH = Math.max(1, window.innerHeight);
-  const uiScale = Math.min(winW / UI_BASE_W, winH / UI_BASE_H);
+  // タッチ操作（スマホ）のときは画面が小さいので、基準を少し小さく（1120×630）して UI を大きめに出す
+  //   （どの画面も 1120×630 に収まる。いちばん縦に長い結果画面はスクロールする）
+  const touch = document.body.classList.contains("touch-mode");
+  const baseW = touch ? 1120 : UI_BASE_W;
+  const baseH = touch ? 630 : UI_BASE_H;
+  const uiScale = Math.min(winW / baseW, winH / baseH);
   document.documentElement.style.setProperty("--ui-scale", uiScale);
 
   const fullW = Math.round(SCREEN_H * (winW / winH));
   SCREEN_W = Math.max(200, Math.min(480, fullW));
   // 縦長・超横長で横幅が範囲外になったときは、引き伸ばさずに上下または左右に黒い帯を入れる
+  //   範囲内なら画面いっぱい（スマホは CSS の 100vh がアドレスバーのぶんずれるので、innerWidth / innerHeight で決める）
   if (SCREEN_W === fullW) {
-    canvas.style.width = canvas.style.height = canvas.style.left = canvas.style.top = "";
+    canvas.style.width = `${winW}px`;
+    canvas.style.height = `${winH}px`;
+    canvas.style.left = canvas.style.top = "0px";
   } else {
     const s = Math.min(winW / SCREEN_W, winH / SCREEN_H);
     canvas.style.width = `${SCREEN_W * s}px`;

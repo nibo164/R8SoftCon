@@ -125,18 +125,7 @@ const Pad = {
     // タイトル画面・準備画面の案内をパッド用に切り替える
     const padInfo = document.getElementById("padInstructions");
     if (padInfo) padInfo.style.display = on ? "block" : "none";
-    const titlePrompt = document.getElementById("titlePrompt");
-    if (titlePrompt) titlePrompt.innerText = on ? "PRESS ANY BUTTON" : "PRESS ANY KEY";
-    const titlePromptJp = document.getElementById("titlePromptJp");
-    if (titlePromptJp) {
-      titlePromptJp.innerText = on ? "なにかボタンをおしてね" : "なにかキーをおしてね";
-    }
-    const prompt = document.getElementById("startPrompt");
-    if (prompt) {
-      prompt.innerText = on ? "PRESS [A]\nTO LAUNCH" : "PRESS [SPACE]\nTO LAUNCH";
-    }
-    const back = document.getElementById("setupBack");
-    if (back) back.innerText = on ? "[B] タイトルへもどる" : "[ESC] タイトルへもどる";
+    updateInputTexts();
 
     if (on) addLog(`GAMEPAD CONNECTED: ${label || "CONTROLLER"}`);
     else addLog("GAMEPAD DISCONNECTED", "warning");
@@ -236,6 +225,129 @@ const Pad = {
   },
 };
 
+// ============================================================
+// タッチ操作（スマホ・タブレット）
+//   操縦：画面のどこでも指を置いてドラッグ（指を置いた所がスティックの中心になる「どこでもスティック」）
+//   撮影：QTE 中は、どこをタップしても撮影。指が離れたときではなく、触れた瞬間に判定する
+//         （1本目の指で操縦しながら、2本目の指でタップできる）
+//   ボタン（難易度・図鑑・ポーズなど）は、ふつうのクリックとして動く
+//   タッチを使うと touchMode になり、画面の文言をタッチ用に切り替える（body に touch-mode クラス）
+// ============================================================
+const Touch = {
+  id: null, // 操縦に使っている指（pointerId）。null なら操縦していない
+  ox: 0, // 指を置いた位置（スティックの中心。画面の CSS ピクセル）
+  oy: 0,
+  x: 0, // いまの指の位置
+  y: 0,
+  axisX: 0, // 移動量（-1〜1。上が正）
+  axisY: 0,
+  lastTouch: -1e9, // 最後に画面に触れた時刻（タッチのあとに来るクリックで二重に撮影しないため）
+  RADIUS: 50, // 指をこれだけ動かすと最大の速さ（CSS ピクセル）
+  DEADZONE: 0.15,
+};
+let touchMode = false;
+let fullscreenTried = false;
+
+function enableTouchMode() {
+  if (touchMode) return;
+  touchMode = true;
+  document.body.classList.add("touch-mode");
+  updateInputTexts();
+  setupScreen(); // UI の大きさをスマホ用に計算しなおす
+}
+// 指で操作する端末なら、最初からタッチ用の文言にしておく
+if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) enableTouchMode();
+
+// Android などでは、最初のタップで全画面・横向き固定にする（iPhone の Safari はできないので何もしない）
+function requestFullscreenOnce() {
+  if (fullscreenTried) return;
+  fullscreenTried = true;
+  const el = document.documentElement;
+  if (!el.requestFullscreen || document.fullscreenElement) return;
+  el.requestFullscreen({ navigationUI: "hide" })
+    .then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape"))
+    .catch(() => {});
+}
+
+function updateTouchAxis() {
+  let dx = (Touch.x - Touch.ox) / Touch.RADIUS;
+  let dy = (Touch.y - Touch.oy) / Touch.RADIUS;
+  const len = Math.hypot(dx, dy);
+  if (len > 1) {
+    dx /= len;
+    dy /= len;
+  }
+  if (len < Touch.DEADZONE) dx = dy = 0;
+  Touch.axisX = dx;
+  Touch.axisY = -dy; // 画面の下が正なので、ゲーム内の上下に合わせて反転
+}
+
+function releaseTouchStick() {
+  Touch.id = null;
+  Touch.axisX = 0;
+  Touch.axisY = 0;
+}
+
+window.addEventListener(
+  "pointerdown",
+  (e) => {
+    if (e.pointerType !== "touch") return;
+    Touch.lastTouch = performance.now();
+    enableTouchMode();
+    requestFullscreenOnce();
+    AudioSys.init();
+    AudioSys.resume();
+    if (e.target.closest("button")) return; // ボタンはクリックとして動かす
+    // QTE 中：触れた瞬間に撮影（QTE 中でなければ qtePress は何もしない）
+    if (isGameStarted && !isGameOver && !isPaused) qtePress();
+    // 1本目の指を操縦に使う
+    if (Touch.id === null) {
+      Touch.id = e.pointerId;
+      Touch.ox = Touch.x = e.clientX;
+      Touch.oy = Touch.y = e.clientY;
+      updateTouchAxis();
+    }
+  },
+  { passive: true },
+);
+window.addEventListener("pointermove", (e) => {
+  if (e.pointerId !== Touch.id) return;
+  Touch.x = e.clientX;
+  Touch.y = e.clientY;
+  updateTouchAxis();
+});
+["pointerup", "pointercancel"].forEach((type) =>
+  window.addEventListener(type, (e) => {
+    if (e.pointerId === Touch.id) releaseTouchStick();
+  }),
+);
+
+// スマホを縦にしたら、プレイ中は一時停止する（縦向きでは「横向きにしてね」を出す）
+window.addEventListener("resize", () => {
+  if (touchMode && innerHeight > innerWidth && isGameStarted && !isGameOver && !isPaused) {
+    releaseTouchStick();
+    togglePause();
+  }
+});
+
+// 操作方法（キーボード / ゲームパッド / タッチ）に合わせて、タイトル・準備画面の文言を切り替える
+function updateInputTexts() {
+  const pad = Pad.connected;
+  const set = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.innerText = text;
+  };
+  set("titlePrompt", pad ? "PRESS ANY BUTTON" : touchMode ? "TAP TO START" : "PRESS ANY KEY");
+  set("titlePromptJp", pad ? "なにかボタンをおしてね" : touchMode ? "画面をタップしてね" : "なにかキーをおしてね");
+  set(
+    "startPrompt",
+    pad ? "PRESS [A]\nTO LAUNCH" : touchMode ? "TAP A MODE\nTO LAUNCH" : "PRESS [SPACE]\nTO LAUNCH",
+  );
+  set("setupBack", pad ? "[B] タイトルへもどる" : touchMode ? "◀ タイトルへもどる" : "[ESC] タイトルへもどる");
+  const codexJp = document.querySelector(".codex-open-jp");
+  if (codexJp) codexJp.innerText = touchMode && !pad ? "点検図鑑" : "点検図鑑 [C]";
+}
+
 window.addEventListener("gamepadconnected", (e) => {
   Pad.index = e.gamepad.index;
 });
@@ -334,6 +446,7 @@ function showTitleScreen() {
 }
 
 titleScreenEl.addEventListener("click", leaveTitleScreen);
+document.getElementById("setupBack").addEventListener("click", showTitleScreen);
 
 // ============================================================
 // 難易度の選択（準備画面）

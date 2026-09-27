@@ -83,7 +83,9 @@ function startQte(obj) {
   AudioSys.setMuffle(true);
   if (tutorial) {
     showInfoCard(
-      "【練習】輪が白い枠に重なった瞬間に、SPACE（A ボタン）を押そう！",
+      touchMode && !Pad.connected
+        ? "【練習】輪が白い枠に重なった瞬間に、画面をタップしよう！"
+        : "【練習】輪が白い枠に重なった瞬間に、SPACE（A ボタン）を押そう！",
       "時間は止まっているよ。失敗してもだいじょうぶ、できるまで練習できる",
       "trivia",
       60000,
@@ -323,6 +325,8 @@ function slowAmount() {
 
 window.addEventListener("click", (event) => {
   if (!isGameStarted || isPaused || isGameOver) return;
+  // タッチのあとに来るクリックは無視する（タッチは触れた瞬間に input.js で撮影済み。二重に押さない）
+  if (performance.now() - Touch.lastTouch < 800) return;
   // ボタンやHUDパネル内のクリックは除外
   // （ボタン内の文字を押した場合もあるので closest で調べる）
   if (event.target.closest("button") || event.target.closest(".hud-panel"))

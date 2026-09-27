@@ -213,7 +213,8 @@ function renderQte(now) {
     // 操作の案内は下の黒帯に（上の黒帯はポーズボタンと重なるので使わない）
     if (bar >= 12) {
       if (Math.floor(now / 200) % 2 === 0) {
-        drawText(`PRESS ${Pad.connected ? "A" : "SPACE"}`, W / 2, H - 12, 1, "#ffffff");
+        const how = Pad.connected ? "PRESS A" : touchMode ? "TAP!" : "PRESS SPACE";
+        drawText(how, W / 2, H - 12, 1, "#ffffff");
       }
     }
   } else {
@@ -337,6 +338,24 @@ function renderOverlay(now) {
     ctx.fillStyle = `rgba(255, 255, 255, ${a})`;
     ctx.fillRect(Math.round(c.cx) - 2, Math.round(c.cy) - 2, 5, 5);
   });
+
+  // タッチのどこでもスティック：指を置いた所に輪、いまの指の向きに丸を出す
+  if (Touch.id !== null && isGameStarted && !isGameOver) {
+    const rect = canvas.getBoundingClientRect();
+    const k = SCREEN_W / rect.width; // CSS ピクセル → 画面のドット
+    const sx = (Touch.ox - rect.left) * k;
+    const sy = (Touch.oy - rect.top) * k;
+    const r = Math.max(6, Math.round(Touch.RADIUS * k));
+    pixelCircle(sx, sy, r, "rgba(255, 255, 255, 0.5)", 1, true);
+    const kx = Math.round(sx + Touch.axisX * r);
+    const ky = Math.round(sy - Touch.axisY * r);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+    ctx.fillRect(kx - 2, ky - 3, 5, 7);
+    ctx.fillRect(kx - 3, ky - 2, 7, 5);
+  }
+
+  // URL に ?fps をつけると、右下にフレームレートを出す（スマホで重さを測るとき用）
+  if (SHOW_FPS) drawText(`FPS ${Math.round(fpsSmooth)}`, W - 2, H - 9, 1, "#6dff7a", "right");
 
   // フラッシュ（点検は白、衝突は赤）
   if (FX.flashA > 0) {
