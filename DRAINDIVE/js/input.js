@@ -341,8 +341,8 @@ titleScreenEl.addEventListener("click", leaveTitleScreen);
 // ============================================================
 const DIFF_NOTES = {
   easy: "ゆっくり進むよ。最初に「撮影」の練習ができる",
-  normal: "ふつうのスピード。点検ポイントは9か所",
-  hard: "とても速い！点検ポイント12か所、判定もきびしい",
+  normal: "ふつうのスピード。点検ポイントは9か所、輪は2つ",
+  hard: "とても速い！点検ポイント12か所、輪が3つ来るよ",
 };
 const diffBtns = DIFFICULTY_ORDER.map((k) => document.getElementById(`diff-${k}`));
 
