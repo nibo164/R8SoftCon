@@ -109,7 +109,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 | 10 | `render-overlay.js` | `renderQte`（QTE の表示と点検ポイントの「!」）、`drawHpRing`（ドローンを囲む 24 区切りの体力ゲージ。HUD パネルの体力の行は `.hp-item` で隠している）、`renderOverlay`（スピード線、コンボ、警告灯、体力低下の赤いふち、ヒビ、フラッシュなど） |
 | 11 | `render-city.js` | `renderCity`（ゴール後の地上の街）と、1フレーム分の描画 `renderFrame` |
 | 12 | `state.js` | ゲーム状態の変数（体力・スコア・進行・演出） |
-| 13 | `input.js` | キーボード、`Pad`（ゲームパッド）、ポーズメニュー、難易度の選択（`setDifficulty` / `selectDifficulty`）、メニューボタンのイベント |
+| 13 | `input.js` | キーボード、`Pad`（ゲームパッド）、ポーズメニュー、タイトル画面 ⇄ 準備画面の切り替え（`titleOpen` / `leaveTitleScreen` / `showTitleScreen`）、難易度の選択（`setDifficulty` / `selectDifficulty`）、メニューボタンのイベント |
 | 14 | `ui.js` | ログ、通知カード、HUD の更新 `updateUI`、点検レポート（`RANKS` / `showClearScreen`）、守った世帯数、図鑑（`codexIconURL` / `renderCodex`、タイトル画面から開く `openCodexScreen`） |
 | 15 | `qte.js` | 点検 QTE（`startQte` / `qtePress` / `resolveQte` / `updateQte`）とチュートリアル（`tutorialPending`）、クリックでの撮影 |
 | 16 | `game.js` | ゲームの流れ：`startGame` / `togglePause` / `resetGame`、衝突判定 `hitsBox`、カウントダウン、ゴール演出、墜落、区間と増水の進行 |

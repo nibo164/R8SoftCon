@@ -276,6 +276,7 @@ window.addEventListener("resize", setupScreen);
 // 難易度の初期値（タイトル画面のボタンの表示もそろえる）
 setDifficulty(diff.key);
 updateModeLabels();
+updateCodexOpenBtn();
 
 // タイトル画面のドローン（ゲーム内と同じドット絵。2コマを切り替えてローターを回す）
 (function setupTitleDrone() {
