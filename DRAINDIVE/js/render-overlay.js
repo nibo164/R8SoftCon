@@ -169,11 +169,42 @@ function renderQte(now) {
     pixelCircle(cx, cy, QTE_RING_TARGET, "#ffffff", 1, true);
     const b = QTE_RING_TARGET + 5;
     drawBracket(cx - b, cy - b, cx + b, cy + b, "#ffffff");
-    // 縮んでいく輪（ぴったりに近いほど緑になる）
-    const err = Math.abs(qte.t - qte.perfectAt);
+    // あとから来る輪（灰色の細い輪。出てきたものだけ）
+    for (let i = qte.rings.length - 1; i > qte.idx; i--) {
+      const r = qteRingRadius(qte, qte.rings[i]);
+      if (r <= QTE_RING_START) pixelCircle(cx, cy, r, "#8a94a6", 1);
+    }
+    // 次に判定する輪（ぴったりに近いほど緑になる）
+    const cur = qte.rings[qte.idx];
+    const err = Math.abs(qte.t - cur.perfectAt);
     const col = err <= diff.qtePerfect ? "#6dff7a" : err <= diff.qteGood ? "#ffe14d" : "#ff9a3c";
-    pixelCircle(cx, cy, qteRingRadius(qte), col, 2);
-    drawText(QTE_LABELS[qte.obj.type] || "", cx, cy - QTE_RING_START - 11, 1, "#ffffff");
+    pixelCircle(cx, cy, qteRingRadius(qte, cur), col, 2);
+    const label = QTE_LABELS[qte.obj.type] || "";
+    const labelY = cy - QTE_RING_START - 11;
+    drawText(label, cx, labelY, 1, "#ffffff");
+    // 輪が2つ以上のときは、名前の右に輪の数だけ四角を並べる（成功した輪はぬりつぶす）
+    if (qte.rings.length > 1) {
+      let px = Math.round(cx + textWidth(label, 1) / 2 + 4);
+      qte.rings.forEach((r) => {
+        ctx.fillStyle = "#000";
+        ctx.fillRect(px - 1, labelY - 1, 7, 7);
+        ctx.fillStyle = r.result === "PERFECT" ? "#6dff7a" : r.result === "GOOD" ? "#ffe14d" : "#ffffff";
+        ctx.fillRect(px, labelY, 5, 5);
+        if (!r.result) {
+          ctx.fillStyle = "#000";
+          ctx.fillRect(px + 1, labelY + 1, 3, 3);
+        }
+        px += 7;
+      });
+    }
+    // 途中の輪の判定（枠の下に小さく出して、少し浮かせる）
+    if (qte.ringPop) {
+      const pt = qte.t - qte.ringPop.t;
+      if (pt < 0.35) {
+        const pc = qte.ringPop.text === "PERFECT" ? "#6dff7a" : "#ffe14d";
+        drawText(qte.ringPop.text, cx, cy + QTE_RING_TARGET + 8 - Math.round(pt * 12), 1, pc);
+      }
+    }
     if (qte.tutorial) {
       // チュートリアル：練習中であることと、押すタイミング（NOW!）を見せる
       drawText("PRACTICE", cx, cy - QTE_RING_START - 21, 1, "#6dff7a");

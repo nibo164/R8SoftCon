@@ -274,7 +274,9 @@ function createRebar(z) {
 //   speedMul     : スピードの倍率           curveMul   : カーブの強さの倍率
 //   floodRise    : 増水で上がる水位         damageMul  : ダメージの倍率
 //   qteSlow      : スロー中の時間の進み     qtePerfect / qteGood : 判定の幅（秒）
-//   ringTime     : 輪がピントの枠に重なるまでの時間（秒）[最小, 最大]
+//   ringTime     : 1つ目の輪がピントの枠に重なるまでの時間（秒）[最小, 最大]
+//   qteRings     : 1回の QTE で出る輪の数   qteRingGap : 輪と輪の間隔（秒。毎回 ±10% ばらつく）
+//   qteTrigger   : QTE が始まる距離（輪が多いほど QTE が長いので、対象を通り過ぎないよう遠くから始める）
 //   tutorial     : 1回目の QTE を練習にする（EASY のみ）
 // ============================================================
 const DIFFICULTIES = {
@@ -292,6 +294,9 @@ const DIFFICULTIES = {
     qtePerfect: 0.12,
     qteGood: 0.32,
     ringTime: [1.2, 1.5],
+    qteRings: 1,
+    qteRingGap: 0,
+    qteTrigger: 36,
     tutorial: true,
   },
   normal: {
@@ -308,6 +313,9 @@ const DIFFICULTIES = {
     qtePerfect: 0.08,
     qteGood: 0.22,
     ringTime: [1.0, 1.3],
+    qteRings: 2,
+    qteRingGap: 0.45,
+    qteTrigger: 44,
     tutorial: false,
   },
   hard: {
@@ -324,6 +332,9 @@ const DIFFICULTIES = {
     qtePerfect: 0.06,
     qteGood: 0.16,
     ringTime: [0.8, 1.0],
+    qteRings: 3,
+    qteRingGap: 0.35,
+    qteTrigger: 56,
     tutorial: false,
   },
 };

@@ -11,11 +11,15 @@
 //     PERFECT / GOOD：撮影成功 → 点検成功（障害物はその場で取りのぞく）
 //     MISS          ：壁の異常は見逃し、障害物はぶつかってダメージ
 //   操作：スペース / Enter / クリック / ゲームパッド A・R2
-//   スローの強さ・判定の幅・輪の速さは難易度（diff）で変わる
+//   スローの強さ・判定の幅・輪の速さ・輪の数は難易度（diff）で変わる
+//   輪の数：EASY 1つ / NORMAL 2つ / HARD 3つ。輪は全部同じ速さで縮み、時間をずらして出てくる。
+//     輪が枠に重なるたびに1回ずつ押す（押すと、いちばん先の まだ判定していない輪で判定する）
+//     1つでも MISS したらその場で QTE 全体が MISS。全部 PERFECT なら PERFECT、それ以外は GOOD
+//     得点は輪ごとに PERFECT 300 / GOOD 150 を足し、コンボ倍率を掛ける（コンボは QTE 1回で1つ）
+//   QTE が始まる距離は難易度ごと（diff.qteTrigger）。輪が多いほど長いので遠くから始める
 //   EASY は1回目の QTE がチュートリアル：時間が完全に止まり、輪がゆっくり縮む。
 //     失敗してもダメージなしで、成功するまでやり直せる
 // ============================================================
-const QTE_TRIGGER_DIST = 36; // ドローンからこの距離まで近づいたら始まる
 const QTE_RING_START = 40; // 縮む輪の最初の半径（画面のドット）
 const QTE_RING_TARGET = 12; // ピントの枠の半径
 const QTE_RESULT_HOLD = 0.45; // 判定を見せる時間（秒）
@@ -52,13 +56,23 @@ function startQte(obj) {
   const tutorial = tutorialPending;
   // 毎回少しタイミングを変える（チュートリアルはゆっくり一定）
   const [tMin, tMax] = diff.ringTime;
-  const perfectAt = tutorial ? TUTORIAL_RING_TIME : tMin + Math.random() * (tMax - tMin);
-  const shrinkSpeed = (QTE_RING_START - QTE_RING_TARGET) / perfectAt;
+  const firstAt = tutorial ? TUTORIAL_RING_TIME : tMin + Math.random() * (tMax - tMin);
+  // 輪の並び（perfectAt：その輪が枠に重なる時刻）。練習は1つだけ
+  const count = tutorial ? 1 : diff.qteRings;
+  const rings = [];
+  let at = firstAt;
+  for (let i = 0; i < count; i++) {
+    if (i > 0) at += diff.qteRingGap * (0.9 + Math.random() * 0.2);
+    rings.push({ perfectAt: at, result: null });
+  }
   qte = {
     obj: obj,
     t: 0,
-    perfectAt: perfectAt,
-    dur: perfectAt + QTE_RING_TARGET / shrinkSpeed, // 輪が消えるまで
+    firstAt: firstAt,
+    shrinkSpeed: (QTE_RING_START - QTE_RING_TARGET) / firstAt, // 輪が縮む速さ（ドット/秒）
+    rings: rings,
+    idx: 0, // 次に判定する輪
+    ringPop: null, // 途中の輪の判定の小さな文字 { text, t }
     result: null,
     resultT: 0,
     tutorial: tutorial,
@@ -76,18 +90,44 @@ function startQte(obj) {
   }
 }
 
-// 縮む輪の今の半径
-function qteRingRadius(q) {
-  const speed = (QTE_RING_START - QTE_RING_TARGET) / q.perfectAt;
-  return Math.max(0, QTE_RING_START - speed * q.t);
+// 輪の今の半径（まだ出てきていない輪は QTE_RING_START より大きくなる）
+function qteRingRadius(q, ring) {
+  return Math.max(0, QTE_RING_START - q.shrinkSpeed * (q.t - ring.perfectAt + q.firstAt));
+}
+
+// この時刻を過ぎたら、押さなかった輪は MISS
+//   最後の輪：今までどおり輪が消えるまで待つ / 途中の輪：GOOD の幅を過ぎたら（次の輪と取りちがえないように）
+function qteRingDeadline(q, i) {
+  const ring = q.rings[i];
+  return i === q.rings.length - 1
+    ? ring.perfectAt + QTE_RING_TARGET / q.shrinkSpeed
+    : ring.perfectAt + diff.qteGood;
 }
 
 // ボタンが押されたとき（QTE 中でなければ何もしない）
 function qtePress() {
   if (!qte || qte.result || isPaused || isGameOver) return false;
-  const err = Math.abs(qte.t - qte.perfectAt);
-  resolveQte(err <= diff.qtePerfect ? "PERFECT" : err <= diff.qteGood ? "GOOD" : "MISS");
+  const err = Math.abs(qte.t - qte.rings[qte.idx].perfectAt);
+  judgeRing(err <= diff.qtePerfect ? "PERFECT" : err <= diff.qteGood ? "GOOD" : "MISS");
   return true;
+}
+
+// 輪を1つ判定する。MISS ならその場で QTE 全体が MISS、最後の輪まで成功したら QTE の結果を出す
+function judgeRing(result) {
+  if (result === "MISS") {
+    resolveQte("MISS");
+    return;
+  }
+  qte.rings[qte.idx].result = result;
+  qte.idx++;
+  if (qte.idx >= qte.rings.length) {
+    resolveQte(qte.rings.every((r) => r.result === "PERFECT") ? "PERFECT" : "GOOD");
+    return;
+  }
+  // まだ輪が残っている：小さく判定を見せて、短い音を鳴らす
+  qte.ringPop = { text: result, t: qte.t };
+  const f = result === "PERFECT" ? 1320 : 990;
+  AudioSys.tone(f, f, 0.06, "square", 0.1);
 }
 
 function resolveQte(result) {
@@ -169,7 +209,8 @@ function resolveQte(result) {
   combo++;
   maxCombo = Math.max(maxCombo, combo);
   const mult = Math.min(combo, COMBO_MAX_MULT);
-  const gained = (perfect ? 300 : 150) * mult;
+  const base = qte.rings.reduce((s, r) => s + (r.result === "PERFECT" ? 300 : 150), 0);
+  const gained = base * mult;
   score += gained;
   inspectedCount++;
   qteSuccess++;
@@ -224,7 +265,7 @@ function cancelQte() {
 function updateQte(dt) {
   if (!qte) {
     const next = qteTargets.find(
-      (o) => !o.qteStarted && o.z < cam.z && cam.z - o.z <= QTE_TRIGGER_DIST,
+      (o) => !o.qteStarted && o.z < cam.z && cam.z - o.z <= diff.qteTrigger,
     );
     if (next) startQte(next);
   }
@@ -236,7 +277,7 @@ function updateQte(dt) {
     qte.t += dt;
     if (!qte.result) {
       targetScale = slow;
-      if (qte.t >= qte.dur) resolveQte("MISS"); // 押さなかった
+      if (qte.t >= qteRingDeadline(qte, qte.idx)) judgeRing("MISS"); // 押さなかった
     } else if (qte.result === "RETRY") {
       // チュートリアルの失敗：少し待って、輪を最初から縮め直す
       targetScale = slow;
@@ -244,6 +285,9 @@ function updateQte(dt) {
       if (qte.resultT >= TUTORIAL_RETRY_HOLD) {
         qte.result = null;
         qte.t = 0;
+        qte.idx = 0;
+        qte.ringPop = null;
+        qte.rings.forEach((r) => (r.result = null));
       }
     } else {
       qte.resultT += dt;
