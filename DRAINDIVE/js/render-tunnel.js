@@ -138,6 +138,10 @@ function renderTunnel(now) {
     if (m.z < cz + MANHOLE_LIGHT_RANGE && m.z > cz - 220) mh = mh || m;
   });
   const mhz = mh ? mh.z : 0;
+  // 穴の半径（ゴールの縦穴はふつうのマンホールより大きい）と、そのまわりの鉄のふち
+  const mhR = mh ? mh.r || MANHOLE_HOLE_R : 0;
+  const mhR2 = mhR * mhR;
+  const mhRim2 = (mhR + 0.45) * (mhR + 0.45);
   const lightY = R - 2;
 
   // 増水中は水が速く流れ、茶色くにごる
@@ -240,11 +244,11 @@ function renderTunnel(now) {
         if (mh && hy > 0) {
           const dzm = wz - mhz;
           const rr = hx * hx + dzm * dzm;
-          if (rr < MANHOLE_HOLE_R * MANHOLE_HOLE_R) {
+          if (rr < mhR2) {
             buf[i] = BAYER4[bayerRow + (px & 3)] < 0.25 ? 0xffd8f4ff : 0xffb0ecff;
             continue;
           }
-          if (rr < 7) {
+          if (rr < mhRim2) {
             buf[i] = 0xff282c30; // 鉄のふち
             continue;
           }

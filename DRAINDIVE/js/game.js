@@ -89,6 +89,8 @@ function resetGame() {
   hitStop = 0;
   countdown = 0;
   goalAnim = -1;
+  goalTilt = 0;
+  shaftDepth = 0;
   gameOverDelay = 0;
   resultShown = false;
   speedFactor = 0;
@@ -232,9 +234,26 @@ function setHudVisible(on) {
   });
 }
 
+// ゴールの縦穴：ゴール地点の 5m 先の天井に、地上へまっすぐ抜ける穴がある
+//   マンホールと同じしくみで天井の穴と差し込む光を描く（goal: true は回復しない。r は穴の半径）
+const GOAL_SHAFT_Z = -(goalDistance * zToMeterRatio + 50);
+manholes.push({ z: GOAL_SHAFT_Z, passed: true, goal: true, r: SHAFT_R });
+
+// ゴール演出の段階（秒）
+//   stop ：縦穴の真下まで進んで止まり、穴のほうへ上がる
+//   tilt ：見上げる（管の画面を下へ流し、縦穴を見上げた画面を上から流し込む）
+//   climb：縦穴を上る（出口の青空がだんだん大きくなる）→ 白く光って地上の街 → クリア画面
+const GOAL_STOP_T = 1.0;
+const GOAL_TILT_T = 0.45;
+const GOAL_CLIMB_T = 1.5;
+let goalFrom = null; // ゴールに着いたときのドローンの位置とカメラの傾き
+
 function startGoal() {
   isGameOver = true; // これ以降は操作・点検・ポーズを受け付けない
   goalAnim = 0;
+  goalTilt = 0;
+  shaftDepth = 0;
+  goalFrom = { x: cam.x, y: cam.y, z: cam.z, pitch: camPitch, roll: camRoll };
   updatePauseBtn();
   Music.stop();
   cancelQte();
@@ -242,24 +261,49 @@ function startGoal() {
 
 function updateGoal(dt) {
   goalAnim += dt;
-  if (cityStart < 0) {
-    // 前へ進みながら上昇し、上を見上げる
-    cam.z -= 90 * dt;
-    cam.y = Math.min(pipeRadius - 1.5, cam.y + 12 * dt);
-    camPitch += (0.45 - camPitch) * Math.min(1, dt * 4);
-    if (goalAnim > 0.45) FX.flash("255,255,255", (goalAnim - 0.45) * 2.2);
-    if (goalAnim > 0.9) {
-      cityStart = performance.now();
-      setHudVisible(false); // 地上の場面では HUD を消して街とドローンを見せる
+  const t = goalAnim;
+  if (cityStart >= 0) {
+    if (!resultShown && performance.now() - cityStart > 1700) showClearScreen();
+    return;
+  }
+  if (t < GOAL_STOP_T) {
+    // 縦穴の真下まで減速しながら進み、管の真ん中へ寄りながら上がる
+    const u = t / GOAL_STOP_T;
+    const e = 1 - (1 - u) * (1 - u);
+    cam.z = goalFrom.z + (GOAL_SHAFT_Z - goalFrom.z) * e;
+    cam.x = goalFrom.x * (1 - e);
+    cam.y = goalFrom.y + (pipeRadius - 3 - goalFrom.y) * smootherstep(u);
+    camPitch = goalFrom.pitch * (1 - e);
+    camRoll = goalFrom.roll * (1 - e);
+  } else if (t < GOAL_STOP_T + GOAL_TILT_T) {
+    // 見上げる：管の画面を下へずらした分だけ、縦穴の画面を上から見せる（つなぎ目がずれないよう同じ量）
+    if (goalTilt === 0) {
+      setHudVisible(false); // ここからは HUD を消して、縦穴と地上を見せる
       hideInfoCard();
+      AudioSys.tone(220, 880, 1.6, "sine", 0.1); // 上っていく「ヒュウウ…」
+    }
+    goalTilt = smootherstep((t - GOAL_STOP_T) / GOAL_TILT_T);
+    camPitch = (SCREEN_H * goalTilt) / focal;
+    cam.y = Math.min(pipeRadius - 1, cam.y + 6 * dt);
+  } else {
+    // 縦穴を上る
+    goalTilt = 1;
+    const u = Math.min(1, (t - GOAL_STOP_T - GOAL_TILT_T) / GOAL_CLIMB_T);
+    shaftDepth = SHAFT_DEPTH * smootherstep(u);
+    if (u > 0.8) FX.flash("255,255,255", (u - 0.8) * 5);
+    if (u >= 1) {
+      cityStart = performance.now();
       FX.flashA = 1;
       FX.lines.length = 0;
       AudioSys.setDrone(false);
       AudioSys.playClear();
     }
-  } else if (!resultShown && goalAnim > 2.6) {
-    showClearScreen();
   }
+}
+
+// ゴール演出中のスピード線の強さ（縦穴を上るあいだだけ、画面の中心から放射状に流す）
+function goalSpeedLines() {
+  return goalTilt >= 1 && cityStart < 0 ? 0.9 : 0;
 }
 
 // ------------------------------------------------------------

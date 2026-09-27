@@ -143,11 +143,98 @@ function renderCity(now) {
   drawText("MISSION CLEAR!", W / 2, 16 + drop, 3, rainbowShift(Math.floor(now / 90)));
 }
 
+// ============================================================
+// ゴールの縦穴：真下から見上げた画面
+//   縦にまっすぐな管なので、管の描画と同じく「1ピクセルずつ視線と円筒の交点」を求めるだけ（曲がり・水はない）。
+//   壁はコンクリートの輪（組み立て式のマンホール）で、片がわに はしごの足掛け（鉄の段）がある。
+//   出口より先に届く視線は青空（出口の丸）になり、上るほど大きくなる
+// ============================================================
+const SHAFT_R = 4; // 縦穴の半径（天井の穴と同じ）
+const SHAFT_DEPTH = 60; // 見上げはじめてから出口までの長さ（ワールド単位）
+const SHAFT_RING = 6; // コンクリートの輪1つの高さ
+const SHAFT_LADDER_ANG = -Math.PI / 2; // 足掛けがある向き（画面の上がわ）
+let goalTilt = 0; // 0〜1：見上げる途中（1 で縦穴の画面だけになる）
+let shaftDepth = 0; // 縦穴をどれだけ上ったか
+
+// shaftY：縦穴の画面を描く縦位置（見上げる途中は上からずらして流し込む）
+function renderShaft(now, shaftY) {
+  const W = SCREEN_W;
+  const H = SCREEN_H;
+  const buf = frameBuf32;
+  const remain = SHAFT_DEPTH + 6 - shaftDepth; // 出口までの距離
+  const cols = [
+    [118, 122, 128],
+    [108, 112, 118],
+  ];
+  for (let py = 0; py < H; py++) {
+    const v = (py + 0.5 - H / 2) / focal;
+    for (let px = 0; px < W; px++) {
+      const u = (px + 0.5 - W / 2) / focal;
+      const r = Math.hypot(u, v);
+      const t = r > 0 ? SHAFT_R / r : Infinity; // 視線が壁に当たるまでの距離
+      const bayer = BAYER4[(py & 3) * 4 + (px & 3)];
+      let cr, cg, cb;
+      if (t > remain) {
+        // 出口の青空（まんなかほど明るい）
+        const k = Math.min(1, r * 6);
+        cr = 190 + 50 * (1 - k);
+        cg = 225 + 25 * (1 - k);
+        cb = 255;
+        if (bayer < 0.2) cr = cg = cb = 255;
+      } else {
+        const a = shaftDepth + t; // 壁の上での高さ
+        const ang = Math.atan2(v, u);
+        const ring = a / SHAFT_RING;
+        const f = ring - Math.floor(ring);
+        // 輪ごとに少し色を変え、ざらつき（骨材のつぶ）を散らす
+        let c = cols[Math.floor(ring) & 1];
+        let hsh = (Math.floor(ang * 20) * 374761393 + Math.floor(a * 3) * 668265263) | 0;
+        hsh = Math.imul(hsh ^ (hsh >>> 13), 1274126177);
+        const grain = ((hsh ^ (hsh >>> 16)) >>> 0) % 17;
+        if (grain === 0) c = [92, 96, 102];
+        else if (grain === 1) c = [138, 142, 148];
+        if (f < 0.06) c = [44, 48, 54]; // 輪と輪の継ぎ目
+        else if (f < 0.1) c = [150, 155, 160];
+        // はしごの足掛け（コの字の鉄の段。輪1つに2段）
+        let da = ang - SHAFT_LADDER_ANG;
+        if (da > Math.PI) da -= TAU;
+        else if (da < -Math.PI) da += TAU;
+        const side = da * SHAFT_R; // 足掛けの中心からの横のずれ
+        const step = (a / (SHAFT_RING / 2)) % 1;
+        if (Math.abs(side) < 1.1 && step < 0.12) c = [224, 176, 60];
+        else if (Math.abs(Math.abs(side) - 1.1) < 0.15 && step < 0.3) c = [170, 130, 40];
+        // 明るさ：出口に近いほど明るく、遠くは暗い（段階をディザでつなぐ）
+        const near = Math.max(0, 1 - (remain - t) / 60);
+        const lit = 0.4 + 0.9 * near * near + 0.3 * Math.max(0, 1 - t / 25);
+        const q = Math.min(LIGHT_LEVELS, Math.floor(lit * LIGHT_LEVELS + bayer)) / LIGHT_LEVELS;
+        cr = c[0] * q;
+        cg = c[1] * q;
+        cb = c[2] * q;
+      }
+      buf[py * W + px] = 0xff000000 | (Math.min(255, cb) << 16) | (Math.min(255, cg) << 8) | Math.min(255, cr);
+    }
+  }
+  ctx.putImageData(frameImage, 0, shaftY);
+
+  // 上っていくドローン（真下から見上げている）
+  const bob = Math.round(Math.sin(now * 0.008));
+  const dw = 44;
+  const dh = 22;
+  const dy = Math.round(shaftY + H / 2 + 26 + bob);
+  ctx.drawImage(droneFrames[Math.floor(now / 40) % 2], Math.round(W / 2 - dw / 2), dy - dh / 2, dw, dh);
+}
+
 // 1フレーム分を描画する（shakeX/Y: 画面ブレのずれ）
 function renderFrame(shakeX = 0, shakeY = 0) {
   const now = performance.now();
   if (cityStart >= 0) {
     renderCity(now);
+    renderOverlay(now);
+    return;
+  }
+  // ゴールの縦穴を上っているあいだは、縦穴の画面だけ
+  if (goalTilt >= 1) {
+    renderShaft(now, 0);
     renderOverlay(now);
     return;
   }
@@ -166,6 +253,8 @@ function renderFrame(shakeX = 0, shakeY = 0) {
   updateBend(renderCam.z);
   renderTunnel(now);
   renderWorld(now);
+  // 見上げる途中：管の画面は camPitch で下へずれているので、空いた上がわに縦穴の画面を流し込む
+  if (goalTilt > 0) renderShaft(now, Math.round(-SCREEN_H * (1 - goalTilt)));
   renderOverlay(now);
 }
 
