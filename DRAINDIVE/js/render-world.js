@@ -85,7 +85,7 @@ function renderWorld(now) {
   manholes.forEach((m) => {
     const p = project(0, 0, m.z);
     if (!p || p.dz > 220) return;
-    const w = 5.6 * p.s;
+    const w = 5.6 * ((m.r || MANHOLE_HOLE_R) / MANHOLE_HOLE_R) * p.s; // 穴が大きいほど光の柱も太い
     const h = pipeRadius * 2 * p.s;
     list.push({ beam: true, dz: p.dz, cx: p.x, cy: p.y, w: w, h: h });
   });

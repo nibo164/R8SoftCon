@@ -28,7 +28,7 @@ function animate() {
   // ゴール演出中
   if (goalAnim >= 0) {
     updateGoal(dt);
-    FX.update(dt, 0);
+    FX.update(dt, goalSpeedLines());
     renderFrame();
     return;
   }
@@ -230,7 +230,7 @@ function animate() {
 
   // マンホール整備ポイント（チェックポイント）の通過判定
   manholes.forEach((m) => {
-    if (!m.passed && cam.z < m.z) {
+    if (!m.passed && !m.goal && cam.z < m.z) {
       m.passed = true;
       hp = Math.min(100, hp + 15);
       AudioSys.playCheckpoint();

@@ -110,7 +110,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 | 8 | `render-tunnel.js` | 投影 `project`、ライティング、`renderTunnel`：1ピクセルずつ視線と管の交点を求めて描く（曲がった管は二分探索）。水面は高さを持つ水平な面。明るさは6段階＋ディザ。デカールの番号と奥行きを `idBuf` / `depthBuf` に記録（今は判定に使っていない。技術の見える化などに使える） |
 | 9 | `render-world.js` | `renderWorld`：障害物・光の柱・破片・ドローンを奥から順に描く。水面より下は切り取る |
 | 10 | `render-overlay.js` | `renderQte`（QTE の表示と点検ポイントの「!」）、`drawHpRing`（ドローンを囲む 24 区切りの体力ゲージ。HUD パネルの体力の行は `.hp-item` で隠している）、`renderOverlay`（スピード線、コンボ、警告灯、体力低下の赤いふち、ヒビ、フラッシュなど） |
-| 11 | `render-city.js` | `renderCity`（ゴール後の地上の街）と、1フレーム分の描画 `renderFrame` |
+| 11 | `render-city.js` | `renderShaft`（ゴールの縦穴を真下から見上げた画面。縦にまっすぐな円筒なので専用の簡単な描画。コンクリートの輪・はしごの足掛け・出口の青空）、`renderCity`（ゴール後の地上の街）と、1フレーム分の描画 `renderFrame` |
 | 12 | `state.js` | ゲーム状態の変数（体力・スコア・進行・演出） |
 | 13 | `input.js` | キーボード、`Pad`（ゲームパッド）、ポーズメニュー、タイトル画面 ⇄ 準備画面の切り替え（`titleOpen` / `leaveTitleScreen` / `showTitleScreen`）、難易度の選択（`setDifficulty` / `selectDifficulty`）、メニューボタンのイベント |
 | 14 | `ui.js` | ログ、通知カード、HUD の更新 `updateUI`、点検レポート（`RANKS` / `showClearScreen`）、守った世帯数、図鑑（`codexIconURL` / `renderCodex`、タイトル画面から開く `openCodexScreen`） |
@@ -138,6 +138,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 - コースは 550m。0〜300m（ZONE 1〜3：点検ポイント・増水・チェックポイント）はボスを入れる前と同じで、300m〜が ZONE 4（シールドトンネル）でのボスとの追いかけっこ
   - 進む速さは 300m（`SPEED_RAMP_DIST`）までだんだん上がり、そのあとは一定。ZONE 4 でも止まらず、ふだんの速さのまま戦う
   - チェックポイントは 75 / 150 / 225 / 290m（290m はボスの前の回復）
+- ゴール演出（`game.js` の `startGoal` / `updateGoal`）：ゴールの 5m 先の天井に、地上へまっすぐ抜ける縦穴（`GOAL_SHAFT_Z`。`manholes` に `goal: true` で入れて、天井の穴と光を描く。回復はしない）
+  - 縦穴の真下まで減速して止まり上がる（1.0秒）→ 見上げる（0.45秒）→ 縦穴を上る（1.5秒）→ 白く光って地上の街 → 1.7秒後にクリア画面
+  - 見上げる演出：この描画ではカメラを本当に上へ回せない（`camPitch` は画面を上下にずらすだけ）。そこで管の画面を `camPitch` で下へずらし、空いた上がわに縦穴の画面を同じ量だけ流し込む（`goalTilt`）。ずらす量をそろえているので、つなぎ目はずれない
 - 流れ：318m で警報（ボスは管の奥をドローンの 0.3 倍の速さで転がっている）→ ドローンが約17mで追いつき、間が 40（ワールド単位）になったらボス戦（約 335m）→ ボスはその間をたもって同じ速さで進む → 撃破・救援の演出 → そのままゴール
   - ボス・弱点・油のしずくはドローンといっしょに動くので、位置は毎フレーム `cam.z` から決める（しずくはドローンから見た速さで持ち、ドローンが進んだぶんを足す）。転がったあとの油のかけらはその場に残り、後ろへ流れていく
 - ボス戦：弱点の QTE（輪の数は難易度どおり）→ 油のしずくを2つ後ろへ投げてくる（ドローンをねらう。操縦でよける）をくり返す。弱点を5回撮影すると撃破（ボーナス 3000点）
