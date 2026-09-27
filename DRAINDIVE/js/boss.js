@@ -512,6 +512,7 @@ function updateBlobs(dt, speed) {
       AudioSys.playSplash();
       AudioSys.playDamage();
       FX.flash("255,220,120", 0.45);
+      FX.crack(b.x < cam.x ? "left" : "right"); // しずくが来た側のふちからヒビ
       FX.burst(cam.x, cam.y, cam.z - 1, FAT_COLORS, 24, 9, 0.8);
       addLog(`SYS DANGER: GREASE HIT (-${BLOB_DAMAGE}%)`, "danger");
       boss.blobs.splice(i, 1);
@@ -552,6 +553,7 @@ function updateWaves(dt, speed) {
         AudioSys.playSplash();
         AudioSys.playDamage();
         FX.flash("255,220,120", 0.6);
+        FX.crack("bottom"); // 波は下から
         FX.burst(cam.x, cam.y, cam.z - 1, FAT_COLORS, 36, 11, 0.9);
         addLog(`SYS DANGER: GREASE WAVE HIT (-${WAVE_DAMAGE}%)`, "danger");
       } else {
@@ -598,6 +600,7 @@ function updateIcicles(dt) {
         AudioSys.playBreak();
         AudioSys.playDamage();
         FX.flash("255,220,120", 0.6);
+        FX.crack("top"); // つららは上から
         FX.burst(cam.x, cam.y + 0.5, cam.z - 1, FAT_COLORS, 36, 11, 0.9);
         addLog(`SYS DANGER: GREASE ICICLE HIT (-${ICICLE_DAMAGE}%)`, "danger");
       } else {
