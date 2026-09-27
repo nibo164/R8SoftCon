@@ -12,6 +12,14 @@ const AudioSys = {
   master: null,
   droneGain: null,
   muted: false,
+  // "a" = 今までの効果音 / "b" = 重厚な効果音（URL に ?sfx=b。聴きくらべ用。ファイルの最後で差し替える）
+  sfxVariant: (() => {
+    try {
+      return new URLSearchParams(location.search).get("sfx") === "b" ? "b" : "a";
+    } catch (e) {
+      return "a";
+    }
+  })(),
 
   // ユーザー操作（スペースキー）後に初期化する必要がある
   init() {
@@ -43,6 +51,7 @@ const AudioSys = {
     });
     filter.connect(this.droneGain);
     this.droneGain.connect(this.master);
+    if (this.initB) this.initB();
   },
 
   resume() {
@@ -842,4 +851,390 @@ Object.assign(Music, {
     o.stop(t + 0.24);
   },
 });
+
+// ============================================================
+// 効果音の B案（?sfx=b のときだけ AudioSys の関数を差し替える）：金属的・インダストリアルな重い音
+//   1つの音を「アタック（頭のカチッ）」「胴鳴り（低いドン）」「余韻（残響）」の3層に分けて重ねる
+//   効果音専用の経路：軽く歪ませる → コンプレッサー → 全体の音量。残響は下水管の中のように暗く響かせる
+//   ほかのファイルから直接呼ぶ tone / noise も、左右に広げた2つの音にして残響を足す
+// ============================================================
+const SFX_B = {
+  SFX_B_VOLUME: 0.6, // 効果音 B案の全体の音量（大きすぎ・小さすぎのときはここを変える）
+
+  initB() {
+    const ctx = this.ctx;
+    const sr = ctx.sampleRate;
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -12;
+    comp.knee.value = 6;
+    comp.ratio.value = 4;
+    comp.attack.value = 0.002;
+    comp.release.value = 0.2;
+    const outG = ctx.createGain();
+    outG.gain.value = this.SFX_B_VOLUME;
+    comp.connect(outG);
+    outG.connect(this.master);
+
+    // 入口：ほんの少し歪ませて音を太くする
+    this.sfxIn = ctx.createGain();
+    const ws = ctx.createWaveShaper();
+    ws.curve = Music.driveCurve(1.4);
+    this.sfxIn.connect(ws);
+    ws.connect(comp);
+
+    // 低い「ドン」専用：強く歪ませて、スマホのスピーカーでも聞こえる倍音を出す
+    this.boomIn = ctx.createGain();
+    const bws = ctx.createWaveShaper();
+    bws.curve = Music.driveCurve(3);
+    const blp = ctx.createBiquadFilter();
+    blp.type = "lowpass";
+    blp.frequency.value = 1800;
+    this.boomIn.connect(bws);
+    bws.connect(blp);
+    blp.connect(comp);
+
+    // 残響：暗く（高い音を落として）響くノイズ。最初の短い反射をいくつか入れて「管の中」らしくする
+    const irLen = Math.floor(sr * 1.8);
+    const ir = ctx.createBuffer(2, irLen, sr);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      let lp = 0;
+      for (let i = 0; i < irLen; i++) {
+        lp += ((Math.random() * 2 - 1) - lp) * 0.35;
+        d[i] = lp * Math.pow(1 - i / irLen, 2.2) * 1.6;
+      }
+      [0.011, 0.023, 0.037, 0.052].forEach((s, k) => {
+        const i = Math.floor(sr * (s + ch * 0.004));
+        d[i] += 0.7 / (k + 1);
+      });
+    }
+    this.sfxVerbIn = ctx.createGain();
+    const verb = ctx.createConvolver();
+    verb.buffer = ir;
+    const verbOut = ctx.createGain();
+    verbOut.gain.value = 0.55;
+    this.sfxVerbIn.connect(verb);
+    verb.connect(verbOut);
+    verbOut.connect(comp);
+
+    // 使い回すノイズ（2秒。鳴らすたびに開始位置をずらす）
+    const len = sr * 2;
+    this.nbuf = ctx.createBuffer(1, len, sr);
+    const nd = this.nbuf.getChannelData(0);
+    for (let i = 0; i < len; i++) nd[i] = Math.random() * 2 - 1;
+
+    // プロペラ音にモーターの高い「ウィーン」を重ねる（近い周波数でうなりを作る）
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 950;
+    bp.Q.value = 3;
+    const wg = ctx.createGain();
+    wg.gain.value = 0.35;
+    [191, 194.5].forEach((f) => {
+      const o = ctx.createOscillator();
+      o.type = "square";
+      o.frequency.value = f;
+      o.connect(bp);
+      o.start();
+    });
+    bp.connect(wg);
+    wg.connect(this.droneGain);
+  },
+
+  // 音を効果音の経路へ出す（残響の量・左右）
+  outB(node, verb, pan) {
+    const ctx = this.ctx;
+    let n = node;
+    if (pan && ctx.createStereoPanner) {
+      const p = ctx.createStereoPanner();
+      p.pan.value = pan;
+      n.connect(p);
+      n = p;
+    }
+    n.connect(this.sfxIn);
+    if (verb) {
+      const g = ctx.createGain();
+      g.gain.value = verb;
+      n.connect(g);
+      g.connect(this.sfxVerbIn);
+    }
+  },
+
+  // 左右に少しずらした2つの波（o.lp でフィルター、o.lpEnd で閉じていく）
+  toneB(f0, f1, dur, type, vol, when = 0, o = {}) {
+    const ctx = this.ctx;
+    const t = ctx.currentTime + when;
+    const g = ctx.createGain();
+    const atk = o.attack || 0.004;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + atk);
+    g.gain.exponentialRampToValueAtTime(0.001, t + Math.max(dur, atk + 0.01));
+    let head = g;
+    if (o.lp) {
+      const f = ctx.createBiquadFilter();
+      f.type = "lowpass";
+      f.Q.value = o.q || 1;
+      f.frequency.setValueAtTime(o.lp, t);
+      if (o.lpEnd) f.frequency.exponentialRampToValueAtTime(o.lpEnd, t + dur);
+      f.connect(g);
+      head = f;
+    }
+    [-1, 1].forEach((side) => {
+      const osc = ctx.createOscillator();
+      osc.type = type;
+      osc.detune.value = side * (o.detune ?? 8);
+      osc.frequency.setValueAtTime(f0, t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
+      let n = osc;
+      if (ctx.createStereoPanner) {
+        const p = ctx.createStereoPanner();
+        p.pan.value = side * 0.35;
+        osc.connect(p);
+        n = p;
+      }
+      const half = ctx.createGain();
+      half.gain.value = 0.6;
+      n.connect(half);
+      half.connect(head);
+      osc.start(t);
+      osc.stop(t + dur + 0.05);
+    });
+    this.outB(g, o.verb ?? 0.25, 0);
+  },
+
+  // ノイズ（o.type でフィルターの種類、o.freqEnd で周波数を動かす）
+  noiseB(dur, freq, vol, when = 0, o = {}) {
+    const ctx = this.ctx;
+    const t = ctx.currentTime + when;
+    const src = ctx.createBufferSource();
+    src.buffer = this.nbuf;
+    src.loop = true; // 開始位置をずらすので、長い音でも途中で切れないようにする
+    const f = ctx.createBiquadFilter();
+    f.type = o.type || "lowpass";
+    f.Q.value = o.q || 0.8;
+    f.frequency.setValueAtTime(freq, t);
+    if (o.freqEnd) f.frequency.exponentialRampToValueAtTime(o.freqEnd, t + dur);
+    const g = ctx.createGain();
+    const atk = o.attack || 0.002;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + atk);
+    g.gain.exponentialRampToValueAtTime(0.001, t + Math.max(dur, atk + 0.01));
+    src.connect(f);
+    f.connect(g);
+    this.outB(g, o.verb ?? 0.3, o.pan || 0);
+    src.start(t, Math.random() * 1.2);
+    src.stop(t + dur + 0.05);
+  },
+
+  // 低い「ドン」（下がっていくサイン波を強く歪ませる）
+  boomB(f0, f1, dur, vol, when = 0) {
+    const ctx = this.ctx;
+    const t = ctx.currentTime + when;
+    const o = ctx.createOscillator();
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.6);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g);
+    g.connect(this.boomIn);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  },
+
+  // 金属の響き：整数倍でない倍音（金属の板やベルと同じ）を重ねる。高い倍音ほど早く消える
+  metalB(f, dur, vol, when = 0, verb = 0.45) {
+    const ctx = this.ctx;
+    const t = ctx.currentTime + when;
+    const g = ctx.createGain();
+    g.gain.value = vol;
+    this.outB(g, verb, 0);
+    [
+      [1, 1],
+      [2.76, 0.6],
+      [5.4, 0.4],
+      [8.93, 0.25],
+    ].forEach(([r, a], i) => {
+      const o = ctx.createOscillator();
+      o.frequency.value = f * r;
+      const og = ctx.createGain();
+      const d = dur / (1 + i * 0.7);
+      og.gain.setValueAtTime(a, t);
+      og.gain.exponentialRampToValueAtTime(0.001, t + d);
+      o.connect(og);
+      og.connect(g);
+      o.start(t);
+      o.stop(t + d + 0.05);
+    });
+  },
+
+  // 砕ける音：短いノイズの粒を時間をずらしてばらまく
+  grainsB(n, spread, vol, lo, hi, when = 0) {
+    for (let i = 0; i < n; i++) {
+      const dt = when + Math.random() * spread;
+      const f = lo + Math.random() * (hi - lo);
+      this.noiseB(0.03 + Math.random() * 0.05, f, vol * (0.5 + Math.random() * 0.5), dt, {
+        type: "bandpass",
+        q: 1.5,
+        verb: 0.3,
+        pan: Math.random() * 1.2 - 0.6,
+      });
+    }
+  },
+
+  // --- ほかのファイルから直接呼ばれる音も太くする ---
+  tone(f0, f1, dur, type, vol, when = 0) {
+    if (!this.ctx) return;
+    const harsh = type === "square" || type === "sawtooth";
+    this.toneB(f0, f1, dur, type, vol * 4, when, { lp: harsh ? 5000 : 0, verb: 0.25 });
+    // 長くて低い音（ボスの「ゴゴゴ…」など）には「ドン」を重ねる
+    if (dur >= 0.3 && Math.min(f0, f1) < 200) this.boomB(f0 * 1.3, Math.max(30, f1 * 0.7), dur, vol * 2.5, when);
+  },
+  noise(dur, freq, vol) {
+    if (!this.ctx) return;
+    this.noiseB(dur, freq, vol, 0, { verb: 0.35 });
+    if (dur >= 0.4 && freq <= 600) this.boomB(90, 35, dur, vol * 1.8);
+  },
+
+  // --- 効果音 ---
+  playScan(combo) {
+    if (!this.ctx) return;
+    this.toneB(650 + combo * 80, 1500, 0.16, "triangle", 0.22, 0, { verb: 0.35 });
+    this.metalB(1300 + combo * 80, 0.4, 0.05);
+  },
+  playMiss() {
+    if (!this.ctx) return;
+    this.toneB(320, 180, 0.12, "square", 0.06, 0, { lp: 1500 });
+  },
+  // ダメージ：金属がひしゃげる「ガシャン」＋低い「ドン」
+  playDamage() {
+    if (!this.ctx) return;
+    this.noiseB(0.06, 3000, 0.45, 0, { type: "highpass", verb: 0.2 });
+    this.boomB(130, 38, 0.5, 0.85);
+    this.metalB(173, 0.7, 0.16, 0, 0.5);
+    this.noiseB(0.45, 1100, 0.35, 0.005, { freqEnd: 180, verb: 0.4 });
+    this.toneB(150, 45, 0.35, "sawtooth", 0.14, 0, { lp: 900 });
+  },
+  playScrape() {
+    if (!this.ctx) return;
+    this.noiseB(0.12, 2600, 0.35, 0, { type: "bandpass", q: 2.5, freqEnd: 1500, verb: 0.2 });
+    this.metalB(820 + Math.random() * 200, 0.18, 0.05, 0, 0.2);
+  },
+  playHeal() {
+    if (!this.ctx) return;
+    this.toneB(660, 660, 0.18, "triangle", 0.18, 0, { verb: 0.45 });
+    this.toneB(990, 990, 0.4, "triangle", 0.18, 0.12, { verb: 0.45 });
+    this.metalB(1980, 0.6, 0.04, 0.12);
+  },
+  playClear() {
+    if (!this.ctx) return;
+    [523, 659, 784, 1047].forEach((f, i) =>
+      this.toneB(f, f, 0.4, "sawtooth", 0.13, i * 0.16, { lp: 3200, lpEnd: 1200, verb: 0.5 }),
+    );
+    // 最後に和音をのばす
+    [523, 659, 784, 1047].forEach((f) =>
+      this.toneB(f, f, 1.6, "sawtooth", 0.07, 0.64, { lp: 2600, lpEnd: 700, attack: 0.02, verb: 0.7 }),
+    );
+    this.boomB(110, 40, 0.8, 0.6, 0.64);
+    this.noiseB(1.2, 6500, 0.12, 0.64, { type: "highpass", verb: 0.6 });
+  },
+  playGameOver() {
+    if (!this.ctx) return;
+    [330, 262, 196, 131].forEach((f, i) =>
+      this.toneB(f, f * 0.9, 0.5, "sawtooth", 0.14, i * 0.22, { lp: 1600, lpEnd: 400, verb: 0.5 }),
+    );
+    this.boomB(80, 30, 1.2, 0.7, 0.66);
+  },
+  // カウントダウン（GO は「ドン」と金属音で重く）
+  playBeep(high) {
+    if (!this.ctx) return;
+    const f = high ? 1320 : 660;
+    this.toneB(f, f, high ? 0.4 : 0.15, "square", 0.1, 0, { lp: 4000, verb: 0.3 });
+    if (high) {
+      this.boomB(140, 45, 0.6, 0.8);
+      this.metalB(660, 0.9, 0.08);
+      this.noiseB(0.8, 5000, 0.12, 0, { type: "highpass", verb: 0.5 });
+    } else {
+      this.boomB(90, 50, 0.15, 0.35);
+    }
+  },
+  // 大雨警報のサイレン（1オクターブ下を重ねて厚く）
+  playSiren() {
+    if (!this.ctx) return;
+    [1, 0.5].forEach((k) => {
+      this.toneB(600 * k, 1100 * k, 0.35, "sawtooth", 0.08, 0, { lp: 2600, attack: 0.03, verb: 0.45 });
+      this.toneB(1100 * k, 600 * k, 0.35, "sawtooth", 0.08, 0.35, { lp: 2600, attack: 0.03, verb: 0.45 });
+    });
+  },
+  // 水しぶき：「ザバッ」＋水の中の低い「ドプン」
+  playSplash() {
+    if (!this.ctx) return;
+    this.noiseB(0.35, 2400, 0.26, 0, { freqEnd: 500, attack: 0.008, verb: 0.35 });
+    this.noiseB(0.6, 800, 0.1, 0.03, { type: "bandpass", q: 1.2, verb: 0.6 });
+    this.boomB(95, 50, 0.25, 0.3);
+  },
+  // チェックポイント：和音の響き＋きらっとした余韻
+  playCheckpoint() {
+    if (!this.ctx) return;
+    [784, 988, 1175, 1568].forEach((f, i) =>
+      this.toneB(f, f, 0.25, "triangle", 0.17, i * 0.06, { verb: 0.5 }),
+    );
+    this.toneB(392, 392, 0.9, "sawtooth", 0.06, 0.18, { lp: 1800, lpEnd: 500, attack: 0.03, verb: 0.6 });
+    this.metalB(1568, 1.0, 0.05, 0.18);
+  },
+  // 区間が変わった：重いヒット＋シンバル
+  playZone() {
+    if (!this.ctx) return;
+    [523, 784, 1047].forEach((f, i) =>
+      this.toneB(f, f, 0.25, "sawtooth", 0.08, i * 0.09, { lp: 3000, verb: 0.45 }),
+    );
+    this.boomB(80, 42, 0.6, 0.6);
+    this.noiseB(0.9, 5200, 0.14, 0, { type: "highpass", verb: 0.5 });
+  },
+  // 障害物を取りのぞいた：コンクリートが砕ける音
+  playBreak() {
+    if (!this.ctx) return;
+    this.noiseB(0.05, 4000, 0.35, 0, { type: "highpass", verb: 0.2 });
+    this.boomB(160, 45, 0.4, 0.7);
+    this.grainsB(6, 0.14, 0.3, 1200, 4200);
+    this.noiseB(0.5, 1400, 0.16, 0.02, { freqEnd: 300, verb: 0.45 });
+  },
+  // QTE 開始：時間が遅くなる「ブゥゥン」
+  playQteStart() {
+    if (!this.ctx) return;
+    this.toneB(900, 180, 0.35, "sine", 0.12, 0, { verb: 0.5 });
+    this.toneB(180, 45, 0.9, "sawtooth", 0.16, 0, { lp: 900, lpEnd: 200, verb: 0.6 });
+    this.noiseB(0.7, 2500, 0.14, 0, { type: "bandpass", q: 1.5, freqEnd: 250, attack: 0.05, verb: 0.6 });
+  },
+  // 撮影成功：機械シャッターの「カシャッ」（2回の小さなクリック）。PERFECT は金属の響きを重ねる
+  playShutter(perfect) {
+    if (!this.ctx) return;
+    this.noiseB(0.025, 4500, 0.4, 0, { type: "highpass", verb: 0.2 });
+    this.noiseB(0.04, 2500, 0.3, 0.055, { type: "bandpass", q: 1.5, verb: 0.3 });
+    this.boomB(200, 90, 0.08, 0.25, 0.055);
+    if (perfect) {
+      this.toneB(1760, 2640, 0.3, "triangle", 0.12, 0.05, { verb: 0.5 });
+      this.metalB(1760, 0.9, 0.08, 0.05, 0.6);
+    } else {
+      this.toneB(1320, 1320, 0.18, "triangle", 0.1, 0.05, { verb: 0.4 });
+    }
+  },
+  // QTE 失敗：「ブブッ」という重いブザー
+  playQteMiss() {
+    if (!this.ctx) return;
+    this.toneB(220, 90, 0.4, "sawtooth", 0.14, 0, { lp: 1200, verb: 0.35 });
+    this.toneB(233, 95, 0.4, "square", 0.07, 0, { lp: 900 });
+    this.boomB(80, 40, 0.3, 0.4);
+  },
+  // 墜落：爆発（低音・破片・金属・長い余韻）
+  playExplode() {
+    if (!this.ctx) return;
+    this.noiseB(0.08, 3500, 0.5, 0, { type: "highpass", verb: 0.3 });
+    this.boomB(110, 25, 1.5, 0.8);
+    this.noiseB(1.6, 3200, 0.5, 0.005, { freqEnd: 140, verb: 0.6 });
+    this.metalB(140, 1.3, 0.14, 0.02, 0.6);
+    this.grainsB(10, 0.9, 0.22, 800, 3500, 0.15);
+  },
+};
+if (AudioSys.sfxVariant === "b") Object.assign(AudioSys, SFX_B);
 
