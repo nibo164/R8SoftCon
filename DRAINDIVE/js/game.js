@@ -353,6 +353,7 @@ function showGameOverScreen() {
   if (gameOverScreen) {
     gameOverScreen.style.display = "flex";
     gameOverScreen.offsetHeight;
+    fitToScreen(gameOverScreen.querySelector(".gameover-content"));
     gameOverScreen.style.opacity = 1;
   }
 }

@@ -632,8 +632,12 @@
 /* クリア画面は項目が多いので、1画面に収まるよう余白を詰める */
 .pixel-ui #clearScreen .clear-content {
   padding: 20px 40px 22px 40px;
-  /* style.css の 94vh は zoom の中だと倍率ぶん大きくなるので、倍率で割って画面の 94% にもどす */
-  max-height: calc(94vh / var(--ui-scale, 1));
+  /* 画面の 94% まで。vh は zoom の中だと倍率ぶん大きくなり、iPhone の Safari ではアドレスバーのぶんも含むので、
+     screen.js が入れる実際の見えている高さ（--app-h）を倍率で割って使う */
+  max-height: calc(var(--app-h, 100vh) * 0.94 / var(--ui-scale, 1));
+  /* 収まらないときのスクロール（画面全体は touch-action: none なので、ここだけ縦のスクロールを許す） */
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 /* style.css の「幅 980px 以下で余白を詰める」は、ドット絵版では UI ごと縮小するので使わない */
 .pixel-ui .clear-columns {
