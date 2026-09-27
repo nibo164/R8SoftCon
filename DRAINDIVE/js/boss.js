@@ -35,11 +35,20 @@ const BLOB_DAMAGE = 6; // 油のしずくが当たったときのダメージ（
 const FAT_COLORS = ["#e6dca8", "#c9bb7e", "#f4efd0", "#9c8e58"];
 // 油の波（後半の攻撃）：管の底から盛り上がった油が押し寄せてくる。上に飛んでよける（しずくは左右でよける）
 //   ※ 油が波になって押し寄せるのはゲームの演出（事実として説明しない）
-const WAVE_FROM_HITS = 2; // 弱点をこの数だけ撮影したあとは、しずくと波を交互に出す
-const WAVE_CHARGE = 0.6; // 波を出す前にボスが震える時間（予告。ゲーム内の秒）
+// 攻撃の順番（撮影に成功した弱点の数で決める）：1つ目のあと しずく → 2つ目 波 → 3つ目 つらら → 4つ目 3つからランダム
+//   （弱点をのがしたときは、撮影できた数が増えないので同じ攻撃をもう一度出す）
+const BOSS_ATTACK_ORDER = ["blobs", "blobs", "wave", "icicle"];
+const ATTACK_CHARGE = 0.6; // 波・つららを出す前にボスが震える時間（予告。ゲーム内の秒）
 const WAVE_TOP = 2; // 波のてっぺんの高さ（管の中心が 0、底が -10。管の下 6 割くらいが波になる）
 const WAVE_SPEED = 40; // 波がドローンに近づく速さ（ドローンから見た速さ。1秒あたり）
 const WAVE_DAMAGE = 10; // 波に当たったときのダメージ（よける動きが大きいぶん、しずくより重い）
+// 油のつらら：ボスが吐き上げた油が前方の天井にはりつき、つららの列になって垂れ下がる。下にもぐってよける
+//   つららは天井に止まっていて、ドローンのほうが近づいていく（波のように動かない）
+//   ※ 油がつららになるのはゲームの演出（事実として説明しない）
+const ICICLE_AHEAD = 90; // つららができる位置（ドローンの前。ボスの向こう。約1秒で届く）
+const ICICLE_TIP = -0.5; // つららの先の高さ（管の上半分より少し下まで。これより下を飛べばよけられる）
+const ICICLE_GROW = 0.35; // つららが伸びきるまでの時間（秒）
+const ICICLE_DAMAGE = 10;
 
 // ------------------------------------------------------------
 // ドット絵（油のかたまり本体・当たったときの白いシルエット・油のしずく）
@@ -158,6 +167,26 @@ function createWaveFrames() {
 }
 const waveFrames = createWaveFrames();
 
+// 油のつらら（上が太く、先がとがった形。天井から ICICLE_TIP まで引きのばして描く）
+function createIcicleSprites() {
+  const w = 7;
+  const h = 26;
+  const img = makePixels(w, h);
+  for (let y = 0; y < h; y++) {
+    const hw = 3.2 * (1 - y / h) + 0.3;
+    for (let x = 0; x < w; x++) {
+      const d = x + 0.5 - w / 2;
+      if (Math.abs(d) > hw) continue;
+      let c = d < -hw * 0.3 ? "#f4efd0" : d > hw * 0.4 ? "#a89a62" : "#d9cf9c"; // 左がわを明るく
+      if (y > h - 4) c = "#e6dca8"; // 先のしずく
+      setPx(img, x, y, c);
+    }
+  }
+  addOutline(img, "#2a2210");
+  return makeShadedVariants(img);
+}
+const icicleSprites = createIcicleSprites();
+
 // ------------------------------------------------------------
 // 状態
 //   state: idle（まだ）→ warned（警報のあと、追いついていく）→ fight（ボス戦）
@@ -182,8 +211,9 @@ function resetBoss() {
   boss.weak = null; // いまの弱点（QTE の対象）。ボスからのずれ wx / wy を持つ
   boss.blobs = []; // 飛んでいる油のしずく（位置はボスと同じく、ドローンから見た動きで進める）
   boss.waves = []; // 押し寄せてくる油の波
-  boss.charge = 0; // >0 のあいだ、波を出す前の予告（ボスが震える）
-  boss.lastAttack = "blobs"; // 直前の攻撃（後半はしずくと波を交互に出す）
+  boss.icicles = []; // 天井のつららの列（1回の攻撃で1列。ワールドに止まっている）
+  boss.charge = 0; // >0 のあいだ、波・つららを出す前の予告（ボスが震える）
+  boss.chargeType = null; // 予告している攻撃（"wave" / "icicle"）
 }
 resetBoss();
 
@@ -274,6 +304,7 @@ function updateBoss(dt, realDt, speed) {
   boss.hurt = Math.max(0, boss.hurt - realDt);
   updateBlobs(dt, speed);
   updateWaves(dt, speed);
+  updateIcicles(dt);
   if (bossActive()) Music.intense = true;
 }
 
@@ -326,23 +357,42 @@ function updateBossFight(dt, realDt) {
         finishBoss(true);
         return;
       }
-      // 後半（弱点を WAVE_FROM_HITS 回撮影したあと）は、しずくと波を交互に出す
-      if (boss.hits >= WAVE_FROM_HITS && boss.lastAttack !== "wave") {
-        boss.step = "wave";
-        boss.lastAttack = "wave";
-        boss.charge = WAVE_CHARGE;
-        AudioSys.tone(90, 55, 0.6, "sawtooth", 0.18); // 「ゴゴゴ…」
-      } else {
+      // 攻撃を選ぶ（撮影できた弱点の数で順番に増えていき、最後は3つからランダム）
+      const attack =
+        boss.hits < BOSS_ATTACK_ORDER.length ? BOSS_ATTACK_ORDER[boss.hits] : pick(["blobs", "wave", "icicle"]);
+      if (attack === "blobs") {
         boss.step = "throw";
-        boss.lastAttack = "blobs";
         boss.throwLeft = BOSS_THROWS;
         boss.next = 0.25;
+      } else {
+        // 波・つららは、少し震えて予告してから出す
+        boss.step = "charge";
+        boss.chargeType = attack;
+        boss.charge = ATTACK_CHARGE;
+        if (attack === "wave") AudioSys.tone(90, 55, 0.6, "sawtooth", 0.18); // 「ゴゴゴ…」
+        else AudioSys.tone(300, 900, 0.3, "square", 0.12); // 油を吐き上げる「ブシュッ」
       }
     }
-  } else if (boss.step === "wave") {
+  } else if (boss.step === "charge") {
     boss.charge -= dt;
+    // つららの予告中は、ボスが天井へ油を吐き上げる
+    if (boss.chargeType === "icicle" && Math.random() < dt * 40) {
+      const k = bossScale();
+      FX.mote(
+        boss.x + (Math.random() - 0.5) * 4,
+        bossCenterY(k) + BOSS_H * k * 0.4,
+        boss.z + 2,
+        (Math.random() - 0.5) * 6,
+        22 + Math.random() * 10,
+        0,
+        pick(FAT_COLORS),
+        0.5,
+        0.35,
+      );
+    }
     if (boss.charge <= 0) {
-      spawnWave();
+      if (boss.chargeType === "wave") spawnWave();
+      else spawnIcicles();
       boss.step = "pause";
       boss.next = BOSS_PAUSE;
     }
@@ -397,6 +447,7 @@ function finishBoss(defeated) {
   boss.result = defeated ? "defeated" : "rescued";
   boss.blobs.length = 0;
   boss.waves.length = 0;
+  boss.icicles.length = 0;
   boss.charge = 0;
   if (qte && qte.obj.boss) cancelQte();
   FX.flash("255,255,255", 0.9);
@@ -515,6 +566,51 @@ function updateWaves(dt, speed) {
 }
 
 // ------------------------------------------------------------
+// 油のつらら（前方の天井に1列できる。ICICLE_TIP より下を飛んでいればよけられる）
+//   ワールドに止まっているので、ドローンが進むと近づいてくる（しずく・波とちがい、速さの補正はいらない）
+// ------------------------------------------------------------
+function spawnIcicles() {
+  const items = [];
+  for (let x = -7.5; x <= 7.5; x += 2.5) {
+    // 先の高さは少しばらつかせる（ICICLE_TIP より下に伸ばすだけなので、判定より少し長いものがある程度）
+    items.push({ x: x + (Math.random() - 0.5) * 0.8, tip: ICICLE_TIP - Math.random() * 0.4 });
+  }
+  boss.icicles.push({ z: cam.z - ICICLE_AHEAD, t: 0, done: false, items: items });
+  AudioSys.noise(0.25, 1800, 0.2);
+  addLog("BOSS: GREASE ICICLES ON THE CEILING", "warning");
+}
+
+function updateIcicles(dt) {
+  for (let i = boss.icicles.length - 1; i >= 0; i--) {
+    const row = boss.icicles[i];
+    row.t += dt;
+    // ドローンがつららの列まで来たら1回だけ判定する
+    if (!row.done && cam.z <= row.z + 0.5) {
+      row.done = true;
+      if (isGameOver) continue;
+      if (cam.y + 0.5 > ICICLE_TIP) {
+        hp -= dmg(ICICLE_DAMAGE);
+        collidedCount++;
+        shakeIntensity = 1.0;
+        hurtBlink = 0.7;
+        combo = 0;
+        updateComboUI();
+        AudioSys.playBreak();
+        AudioSys.playDamage();
+        FX.flash("255,220,120", 0.6);
+        FX.burst(cam.x, cam.y + 0.5, cam.z - 1, FAT_COLORS, 36, 11, 0.9);
+        addLog(`SYS DANGER: GREASE ICICLE HIT (-${ICICLE_DAMAGE}%)`, "danger");
+      } else {
+        const sp = project(cam.x, cam.y, cam.z);
+        if (sp) FX.pop(sp.x, sp.y - 6, "DODGE!", "#6dff7a");
+        AudioSys.tone(880, 1320, 0.12, "square", 0.08);
+      }
+    }
+    if (row.z > cam.z + 10) boss.icicles.splice(i, 1);
+  }
+}
+
+// ------------------------------------------------------------
 // 描画（render-world.js の renderWorld から呼ばれる。奥行き順に並べる list に入れる）
 // ------------------------------------------------------------
 function addBossSprites(list, now) {
@@ -560,6 +656,25 @@ function addBossSprites(list, now) {
       },
     });
   });
+  boss.icicles.forEach((row) => {
+    const grow = Math.min(1, row.t / ICICLE_GROW);
+    row.items.forEach((it) => {
+      const ceil = Math.sqrt(pipeRadius * pipeRadius - it.x * it.x) - 0.2; // その横位置での天井の高さ
+      const len = (ceil - it.tip) * grow;
+      if (len <= 0.05) return;
+      const p = project(it.x, ceil - len / 2, row.z);
+      if (!p || p.dz > 170) return;
+      list.push({
+        dz: p.dz,
+        draw: () => {
+          const sw = Math.max(1, Math.round(1.8 * p.s));
+          const sh = Math.max(1, Math.round(len * p.s));
+          const lv = Math.max(3, spriteLevel(p.x, p.y, p.dz, row.z));
+          ctx.drawImage(icicleSprites[lv], Math.round(p.x - sw / 2), Math.round(p.y - sh / 2), sw, sh);
+        },
+      });
+    });
+  });
   boss.blobs.forEach((b) => {
     const p = project(b.x, b.y, b.z);
     if (!p) return;
@@ -592,9 +707,12 @@ function renderBossHud(now) {
   if (!warn || Math.floor(now / 250) % 2 === 0) {
     drawText(`TIME ${left}`, W / 2, 38, 1, warn ? "#ff4d6d" : "#ffffff");
   }
-  // 油の波の予告と、波が来るまでのあいだ：画面の下に「UP!」を点滅（上に飛んでよける合図）
-  const waveComing = boss.charge > 0 || boss.waves.some((w) => !w.done);
-  if (waveComing && Math.floor(now / 150) % 2 === 0) {
-    drawText("UP!", W / 2, SCREEN_H - 38, 2, "#ffe14d");
+  // 予告と、届くまでのあいだ：画面の下によける向きを点滅（波は「UP!」、つららは「DOWN!」）
+  const charging = boss.charge > 0 ? boss.chargeType : null;
+  const waveComing = charging === "wave" || boss.waves.some((w) => !w.done);
+  const icicleComing = charging === "icicle" || boss.icicles.some((r) => !r.done);
+  if (Math.floor(now / 150) % 2 === 0) {
+    if (waveComing) drawText("UP!", W / 2, SCREEN_H - 38, 2, "#ffe14d");
+    else if (icicleComing) drawText("DOWN!", W / 2, SCREEN_H - 38, 2, "#ffe14d");
   }
 }
