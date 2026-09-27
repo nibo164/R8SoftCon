@@ -336,6 +336,7 @@ function crashDrone() {
 
 function showGameOverScreen() {
   resultShown = true;
+  resultShownAt = performance.now();
   document.getElementById("failDistance").innerText = `${Math.floor(distance)}m`;
   document.getElementById("failScore").innerText = score;
 

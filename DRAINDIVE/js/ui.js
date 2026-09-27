@@ -452,6 +452,7 @@ document.getElementById("codexCloseBtn").addEventListener("click", () => {
 function showClearScreen() {
   updatePauseBtn();
   resultShown = true;
+  resultShownAt = performance.now();
   // 成功率：ラスボスの弱点も点検ポイントとして数える（撃破できなかったぶんだけ下がる）
   const rate = (qteSuccess + boss.hits) / (qteTargets.length + BOSS_HP);
   const r = RANKS.find((x) => rate >= x.min);
