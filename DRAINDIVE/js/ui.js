@@ -347,6 +347,7 @@ function openCodexScreen() {
   codexScreenEl.style.opacity = 1;
   AudioSys.init();
   AudioSys.resume();
+  Music.menu();
   AudioSys.tone(660, 990, 0.1, "square", 0.08);
 }
 
@@ -503,5 +504,6 @@ function showClearScreen() {
     fitToScreen(clearScreen.querySelector(".clear-layout"));
     clearScreen.style.opacity = 1;
   }
+  Music.start("clear");
 }
 

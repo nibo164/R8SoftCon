@@ -212,6 +212,7 @@ const Music = {
   timer: null,
   on: false,
   intense: false,
+  track: "game",
   step: 0,
   nextTime: 0,
   // "a" = チップチューン（今までの曲） / "b" = ハードテクノ（聴きくらべ用）
@@ -252,19 +253,41 @@ const Music = {
     if (this.variant === "b") this.setupB();
   },
 
-  start() {
+  // track："game"（プレイ中）/ "menu"（タイトル・準備・図鑑）/ "clear"（クリア画面）/ "over"（ゲームオーバー画面）
+  //   プレイ中以外の曲は B案だけ
+  start(track = "game") {
     if (!AudioSys.ctx) return;
+    if (track !== "game" && this.variant !== "b") return;
     this.setup();
     this.stop();
+    this.track = track;
     this.on = true;
     this.step = 0;
+    if (this.bFade) {
+      const t = AudioSys.ctx.currentTime;
+      this.bFade.gain.cancelScheduledValues(t);
+      this.bFade.gain.setValueAtTime(1, t);
+    }
     this.resume();
   },
   stop() {
+    if (this.on && this.bFade) {
+      // B案は、鳴っている音の余韻ごと少しずつ消す
+      const t = AudioSys.ctx.currentTime;
+      this.bFade.gain.cancelScheduledValues(t);
+      this.bFade.gain.setValueAtTime(this.bFade.gain.value, t);
+      this.bFade.gain.linearRampToValueAtTime(0, t + 0.5);
+    }
     this.on = false;
     this.intense = false;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+  },
+  // メニュー曲（まだ鳴っていなければ始める）。ゲーム中・結果画面では何もしない
+  menu() {
+    if (isGameStarted || isGameOver || resultShown) return;
+    if (this.on && this.track === "menu") return;
+    this.start("menu");
   },
   pause() {
     if (this.timer) clearInterval(this.timer);
@@ -279,7 +302,7 @@ const Music = {
 
   tick() {
     const ctx = AudioSys.ctx;
-    const bpm = this.intense ? 172 : 150;
+    const bpm = this.track === "game" ? (this.intense ? 172 : 150) : this.B_TRACK_BPM[this.track];
     const d16 = 60 / bpm / 4; // 16分音符の長さ
     if (this.variant === "b") this.setDelayTimeB(d16);
     while (this.nextTime < ctx.currentTime + 0.12) {
@@ -336,6 +359,9 @@ const Music = {
   },
 
   playStep(step, t, d16) {
+    if (this.track === "menu") return this.playMenuB(step, t, d16);
+    if (this.track === "clear") return this.playClearB(step, t, d16);
+    if (this.track === "over") return this.playOverB(step, t, d16);
     if (this.variant === "b") return this.playStepB(step, t, d16);
     const bar = Math.floor(step / 16) % this.CHORDS.length;
     const s = step % 16;
@@ -426,7 +452,9 @@ Object.assign(Music, {
     this.bComp.release.value = 0.16;
     const out = ctx.createGain();
     out.gain.value = this.B_VOLUME;
-    this.bComp.connect(out);
+    this.bFade = ctx.createGain(); // 曲を止めるときのフェードアウト用
+    this.bComp.connect(this.bFade);
+    this.bFade.connect(out);
     out.connect(this.gain);
 
     // ドラムはそのまま、それ以外はサイドチェインで下げる（bDuck）
@@ -482,6 +510,7 @@ Object.assign(Music, {
       lead: this.channelB(this.bDuck, 0.75, 0.3, 0.32, 0, 1.2),
       arp: this.channelB(this.bDuck, 0.6, 0.35, 0.5, -0.25, 0),
       riser: this.channelB(this.bDrums, 0.6, 0.5, 0, 0, 0),
+      drip: this.channelB(this.bDuck, 0.4, 0.9, 0.45, 0.3, 0),
     };
 
     // シンバルやうねりに使う長いノイズ
@@ -615,13 +644,13 @@ Object.assign(Music, {
 
   // --- 楽器 ---
 
-  kickB(t) {
+  kickB(t, vol = 1) {
     const ctx = AudioSys.ctx;
     const o = ctx.createOscillator();
     const g = ctx.createGain();
     o.frequency.setValueAtTime(210, t);
     o.frequency.exponentialRampToValueAtTime(48, t + 0.09);
-    g.gain.setValueAtTime(1, t);
+    g.gain.setValueAtTime(vol, t);
     g.gain.setTargetAtTime(0.0001, t + 0.05, 0.07);
     o.connect(g);
     g.connect(this.bCh.kick);
@@ -849,6 +878,115 @@ Object.assign(Music, {
     g.connect(this.bCh.arp);
     o.start(t);
     o.stop(t + 0.24);
+  },
+});
+
+// ============================================================
+// B案の画面ごとの曲（楽器はプレイ中の曲と同じものを使う）
+//   menu：タイトル・準備・図鑑。落ち着いた待機の曲（16小節ループ。和音は2小節ずつ）
+//   clear：クリア画面。明るい王道進行（C - D - Bm - Em）
+//   over：ゲームオーバー画面。ドラムなしの暗く静かな曲と、管にしたたる しずくの音
+// ============================================================
+Object.assign(Music, {
+  B_TRACK_BPM: { menu: 124, clear: 132, over: 84 },
+  B_CLEAR_CHORDS: [
+    [48, 52, 55, 59],
+    [50, 54, 57, 62],
+    [47, 50, 54, 57],
+    [52, 55, 59, 62],
+  ],
+  B_CLEAR_ROOTS: [36, 38, 35, 40],
+  B_CLEAR_LEAD: [
+    [0, 71, 2], [2, 74, 2], [4, 79, 4], [8, 78, 2], [10, 76, 2], [12, 74, 4],
+    [16, 71, 2], [18, 74, 2], [20, 76, 4], [24, 79, 2], [26, 78, 2], [28, 76, 4],
+  ],
+  B_OVER_CHORDS: [
+    [52, 55, 59, 64],
+    [48, 52, 55, 59],
+    [45, 52, 57, 60],
+    [47, 51, 54, 59],
+  ],
+  B_OVER_ROOTS: [40, 36, 45, 47],
+
+  playMenuB(step, t, d16) {
+    const bar = Math.floor(step / 16);
+    const s = step % 16;
+    const lb = bar % 16; // ループの中の何小節目か
+    const ci = Math.floor(lb / 2) % 8;
+    const chord = this.B_CHORDS[ci];
+    const barLen = d16 * 16;
+    if (s === 0) {
+      this.padB(chord, t, barLen, 0.07, 1200);
+      // 低いベースを1小節のばす
+      this.bassB(this.B_ROOTS[ci], t, barLen * 0.95, 260);
+    }
+    // 8分音符のアルペジオ（反響で管に広がる）
+    if (s % 2 === 0) {
+      const i = this.B_ARP[(s / 2 + lb * 3) % 16];
+      this.arpB(chord[i] + 12, t, 0.08);
+    }
+    // 5小節目から、半分の速さのキックとハイハット（2周目からは最初から）
+    const groove = bar >= 4;
+    if (groove && (s === 0 || s === 8)) this.kickB(t, 0.55);
+    if (groove && bar >= 8 && s % 4 === 2) this.hatB(t, false, 0.08);
+    if (groove && s === 8 && lb % 4 === 3) this.clapB(t, 0.22);
+  },
+
+  playClearB(step, t, d16) {
+    const bar = Math.floor(step / 16);
+    const s = step % 16;
+    const ci = bar % 4;
+    const chord = this.B_CLEAR_CHORDS[ci];
+    const barLen = d16 * 16;
+    if (s === 0 && bar % 8 === 0) this.crashB(t);
+    if (s % 4 === 0) this.kickB(t, 0.7);
+    if (s === 4 || s === 12) this.clapB(t, 0.35);
+    if (s % 4 === 2) this.hatB(t, true, 0.14);
+    // 裏拍のベース（オクターブを行き来する）
+    if (s % 4 === 2) this.bassB(this.B_CLEAR_ROOTS[ci] + (s === 6 || s === 14 ? 12 : 0), t, d16 * 1.6, 1100);
+    if (s === 0) this.padB(chord, t, barLen, 0.06, 2600);
+    this.arpB(chord[this.B_ARP[s]] + 24, t, 0.035);
+    // 最初の2小節はメロディなし。そのあとリード
+    if (bar >= 2) {
+      const pos = (bar % 2) * 16 + s;
+      for (const [p, m, len] of this.B_CLEAR_LEAD) {
+        if (p === pos) this.leadB(m, t, d16 * len * 0.92, 0.1);
+      }
+    }
+  },
+
+  playOverB(step, t, d16) {
+    const bar = Math.floor(step / 16);
+    const s = step % 16;
+    const ci = bar % 4;
+    const chord = this.B_OVER_CHORDS[ci];
+    const barLen = d16 * 16;
+    if (s === 0) {
+      this.padB(chord, t, barLen, 0.08, 900);
+      this.bassB(this.B_OVER_ROOTS[ci] - 12, t, barLen * 0.95, 180);
+    }
+    // 4分音符ごとに、和音の音を上から下へ（まばらに）
+    if (s % 4 === 0 && (bar % 2 === 1 || s < 8)) {
+      this.arpB(chord[3 - s / 4] + 12, t, 0.055);
+    }
+    // しずく（ときどき、ランダムな高さで）
+    if (Math.random() < 0.06) this.dripB(t, 1200 + Math.random() * 900);
+  },
+
+  // しずく：一瞬で音が上がる短いサイン波（水滴が水面に落ちた「ポチャン」）
+  dripB(t, f) {
+    const ctx = AudioSys.ctx;
+    const o = ctx.createOscillator();
+    o.frequency.setValueAtTime(f * 0.6, t);
+    o.frequency.exponentialRampToValueAtTime(f, t + 0.03);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.12, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    o.connect(g);
+    g.connect(this.bCh.drip);
+    o.start(t);
+    o.stop(t + 0.14);
   },
 });
 
