@@ -234,15 +234,16 @@
   box-sizing: border-box;
   text-align: left;
 }
+/* 画面の見出し：左右のパネルの上に、画面の真ん中に大きく出す */
 .pixel-ui .setup-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  margin: 0 0 18px 0;
+  margin: 0 0 22px 0;
 }
 .pixel-ui .setup-heading {
   font-family: var(--px-head);
-  font-size: 18px;
+  font-size: 24px;
   color: var(--px-yellow);
   text-shadow: 3px 3px 0 #7a5a00;
 }

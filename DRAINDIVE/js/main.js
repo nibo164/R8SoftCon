@@ -213,7 +213,7 @@ function animate() {
       h.visible = false;
       AudioSys.playDamage();
       FX.flash("255,40,40", 0.55);
-      FX.crack();
+      FX.crack(hazardCrackSide(h));
       FX.burst(cam.x, cam.y, cam.z - 1, HAZARD_COLORS[h.type], 30, 10, 0.9);
       combo = 0; // ぶつかるとコンボが切れる
       updateComboUI();

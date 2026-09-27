@@ -214,7 +214,7 @@ function resolveQte(result) {
       hurtBlink = 0.7;
       AudioSys.playDamage();
       FX.flash("255,40,40", 0.55);
-      FX.crack();
+      FX.crack(hazardCrackSide(o));
       FX.burst(cam.x, cam.y, cam.z - 1, HAZARD_COLORS[o.type], 30, 10, 0.9);
       addLog(`SYS DANGER: ${o.type.toUpperCase()} COLLISION (-15%)`, "danger");
     }

@@ -69,12 +69,32 @@ const FX = {
   },
   // 画面のヒビ：ドローンのあたりの衝突点から、ガラスが割れたように放射状に広がる
   //   主な割れ目（太さ2）が画面の端まで伸び、枝分かれと蜘蛛の巣状の割れ目（太さ1）をつなぐ
-  crack() {
+  //   side：ヒビの起点。ぶつかった物が来た側のふち（"left" / "right" / "top" / "bottom"）から割れる
+  //         （中央のドローンまわりを見やすくするため）。省略すると墜落のときのように中央から割れる
+  crack(side) {
     const W = SCREEN_W;
     const H = SCREEN_H;
-    // 衝突点：ドローン（画面の中央やや下）のまわり
-    const cx = W / 2 + randInt(-50, 50);
-    const cy = H / 2 + 25 + randInt(-25, 12);
+    let cx;
+    let cy;
+    const edgeX = Math.round(W * 0.12);
+    const edgeY = Math.round(H * 0.1);
+    if (side === "left") {
+      cx = randInt(4, edgeX);
+      cy = H / 2 + randInt(-30, 30);
+    } else if (side === "right") {
+      cx = W - randInt(4, edgeX);
+      cy = H / 2 + randInt(-30, 30);
+    } else if (side === "top") {
+      cx = W / 2 + randInt(-70, 70);
+      cy = randInt(4, edgeY);
+    } else if (side === "bottom") {
+      cx = W / 2 + randInt(-70, 70);
+      cy = H - randInt(4, edgeY);
+    } else {
+      // 衝突点：ドローン（画面の中央やや下）のまわり
+      cx = W / 2 + randInt(-50, 50);
+      cy = H / 2 + 25 + randInt(-25, 12);
+    }
     const lines = [];
     const rays = [];
     const nRay = randInt(7, 10);

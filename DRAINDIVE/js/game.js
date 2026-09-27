@@ -197,6 +197,14 @@ function hitsBox(b) {
   );
 }
 
+// 障害物にぶつかったとき、画面のどのふちからヒビを入れるか（ぶつかった物が来た側）
+//   堆積物は床なので下、木の根は天井がわの壁から垂れているので上、漏水は左右のどちらか
+function hazardCrackSide(h) {
+  if (h.type === "sediment") return "bottom";
+  if (h.type === "roots") return "top";
+  return h.x < cam.x ? "left" : "right";
+}
+
 // 障害物ごとの破片の色
 const HAZARD_COLORS = {
   leak: ["#8fd8ff", "#33aaff", "#e0f6ff"],
