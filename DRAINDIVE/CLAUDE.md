@@ -108,7 +108,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 | 順 | ファイル | 主な中身 |
 |---|---|---|
 | 1 | `screen.js` | `setupScreen` / `cam` / `focal`：縦180ピクセル固定の低解像度画面。`cam` はドローンの位置（「まっすぐな管」の座標系）。`focal` はスピードに応じて変わる焦点距離 |
-| 2 | `audio.js` | `AudioSys`（効果音・プロペラ音、スロー中に音をこもらせる `setMuffle`）、`Music`（チップチューン BGM。8小節ループ。増水中は `intense` でテンポアップ） |
+| 2 | `audio.js` | `AudioSys`（効果音・プロペラ音、スロー中に音をこもらせる `setMuffle`）、`Music`（チップチューン BGM。8小節ループ。増水中は `intense` でテンポアップ）。**聴きくらべ用**：URL に `?bgm=b` で B案（ハードテクノ。残響・反響・サイドチェイン・曲の構成つき。`playStepB` ほか `*B` の関数）を鳴らす。B案の音量は `B_VOLUME` |
 | 3 | `data.js` | `ANOMALY_INFO` / `CODEX_ORDER` / `TRIVIA`、図鑑の記録 `codexSession`。`loadCodex` / `saveCodex` で localStorage（キー `drainDive.codex.v1`）に保存。**撮影用**：URL に `?codex=all` で全種類発見済み、`?codex=reset` で記録を消す |
 | 4 | `pixelart.js` | ドット絵の道具（`makePixels` / `setPx` / `makeShadedVariants` など）、区間ごとの管テクスチャ `zoneTextures`（ZONE 4 はシールドトンネルのセグメント）、水面テクスチャ、5x7 ドットフォント（`FONT` / `drawText`。英大文字・数字・記号のみ）、ドローンのドット絵（`createDroneFrames` / `CAM_UP` / `CAM_BACK`） |
 | 5 | `objects.js` | 障害物（スプライト）と壁の異常（デカール）の生成、`DIFFICULTIES` / `diff` / `dmg()`、`placeObjects(diff)` / `qteTargets`（**ゲームを始めるたびに**選んだ難易度で並べ直す。点検ポイントを 30〜280m にほぼ等間隔で置き、6種類を最低1回ずつ出す。避けるだけの障害物は QTE の地点の前後・チェックポイントの近く・ZONE 4（300m〜）には置かない）、マンホール（75 / 150 / 225 / 290m） |
