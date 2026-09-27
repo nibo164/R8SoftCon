@@ -10,7 +10,8 @@
 let hp = 100;
 let score = 0;
 let distance = 0;
-const goalDistance = 300; // メートル換算
+const goalDistance = 600; // メートル換算（300m〜は ZONE 4。ラスボスとの追いかけっこ）
+const SPEED_RAMP_DIST = 300; // ここまでは進むほど速くなり、そのあとは一定（ZONE 3 までの手ざわりを変えないため）
 const zToMeterRatio = 10; // Z座標10単位 = 1メートル
 const baseSpeed = 1.3;
 let isGameOver = false;

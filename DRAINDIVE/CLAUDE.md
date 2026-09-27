@@ -27,7 +27,7 @@
 
 | 版 | ファイル | 描画 |
 |---|---|---|
-| ドット絵版（主役） | `index.html` / `pixel.css` / `js/*.js`（17ファイル） | Canvas 2D だけの自作疑似3D（Three.js 不要） |
+| ドット絵版（主役） | `index.html` / `pixel.css` / `js/*.js`（18ファイル） | Canvas 2D だけの自作疑似3D（Three.js 不要） |
 | 3D版（比較用） | `3d.html` / `script.js` | Three.js **r128**（CDN から読み込み） |
 
 - `style.css` は両方の版で共通。ドット絵版だけの見た目は `pixel.css` に書く（`style.css` のあとに読み込んで上書きする）
@@ -103,9 +103,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 | 1 | `screen.js` | `setupScreen` / `cam` / `focal`：縦180ピクセル固定の低解像度画面。`cam` はドローンの位置（「まっすぐな管」の座標系）。`focal` はスピードに応じて変わる焦点距離 |
 | 2 | `audio.js` | `AudioSys`（効果音・プロペラ音、スロー中に音をこもらせる `setMuffle`）、`Music`（チップチューン BGM。8小節ループ。増水中は `intense` でテンポアップ） |
 | 3 | `data.js` | `ANOMALY_INFO` / `CODEX_ORDER` / `TRIVIA`、図鑑の記録 `codexSession`。`loadCodex` / `saveCodex` で localStorage（キー `drainDive.codex.v1`）に保存。**撮影用**：URL に `?codex=all` で全種類発見済み、`?codex=reset` で記録を消す |
-| 4 | `pixelart.js` | ドット絵の道具（`makePixels` / `setPx` / `makeShadedVariants` など）、区間ごとの管テクスチャ `zoneTextures`、水面テクスチャ、5x7 ドットフォント（`FONT` / `drawText`。英大文字・数字・記号のみ）、ドローンのドット絵（`createDroneFrames` / `CAM_UP` / `CAM_BACK`） |
-| 5 | `objects.js` | 障害物（スプライト）と壁の異常（デカール）の生成、`DIFFICULTIES` / `diff` / `dmg()`、`placeObjects(diff)` / `qteTargets`（**ゲームを始めるたびに**選んだ難易度で並べ直す。点検ポイントを 30〜280m にほぼ等間隔で置き、6種類を最低1回ずつ出す。避けるだけの障害物は QTE の地点の前後とチェックポイントの近くには置かない）、マンホール |
-| 6 | `course.js` | `ZONES` / `courseCenter` / `floodAmountAt`：100mごとの区間、管の曲がり、増水（160mで警報、170〜236mで水位が上下）。`updateBend` / `bendAt`：管の曲がりの前計算。**当たり判定はまっすぐな管の座標のまま計算し、描画のときだけ曲げる**（レースゲームと同じ方式）。カーブでは遠心力で外側へ流される |
+| 4 | `pixelart.js` | ドット絵の道具（`makePixels` / `setPx` / `makeShadedVariants` など）、区間ごとの管テクスチャ `zoneTextures`（ZONE 4 はシールドトンネルのセグメント）、水面テクスチャ、5x7 ドットフォント（`FONT` / `drawText`。英大文字・数字・記号のみ）、ドローンのドット絵（`createDroneFrames` / `CAM_UP` / `CAM_BACK`） |
+| 5 | `objects.js` | 障害物（スプライト）と壁の異常（デカール）の生成、`DIFFICULTIES` / `diff` / `dmg()`、`placeObjects(diff)` / `qteTargets`（**ゲームを始めるたびに**選んだ難易度で並べ直す。点検ポイントを 30〜280m にほぼ等間隔で置き、6種類を最低1回ずつ出す。避けるだけの障害物は QTE の地点の前後・チェックポイントの近く・ZONE 4（300m〜）には置かない）、マンホール（75 / 150 / 225 / 290m） |
+| 6 | `course.js` | `ZONES` / `courseCenter` / `floodAmountAt`：100mごとの区間（ZONE 4 は 300m〜ゴールの 600m まで）、管の曲がり、増水（160mで警報、170〜236mで水位が上下）。`updateBend` / `bendAt`：管の曲がりの前計算。**当たり判定はまっすぐな管の座標のまま計算し、描画のときだけ曲げる**（レースゲームと同じ方式）。カーブでは遠心力で外側へ流される |
 | 7 | `fx.js` | `FX`：破片、広がる輪、飛び出す数字、フラッシュ、画面のヒビ（衝突点から放射状に割れるガラスのようなヒビ。`CRACK_TIME` 秒で消える）、スピード線、中央の大きな文字（`showBanner`） |
 | 8 | `render-tunnel.js` | 投影 `project`、ライティング、`renderTunnel`：1ピクセルずつ視線と管の交点を求めて描く（曲がった管は二分探索）。水面は高さを持つ水平な面。明るさは6段階＋ディザ。デカールの番号と奥行きを `idBuf` / `depthBuf` に記録（今は判定に使っていない。技術の見える化などに使える） |
 | 9 | `render-world.js` | `renderWorld`：障害物・光の柱・破片・ドローンを奥から順に描く。水面より下は切り取る |
@@ -115,8 +115,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 | 13 | `input.js` | キーボード、`Pad`（ゲームパッド）、ポーズメニュー、タイトル画面 ⇄ 準備画面の切り替え（`titleOpen` / `leaveTitleScreen` / `showTitleScreen`）、難易度の選択（`setDifficulty` / `selectDifficulty`）、メニューボタンのイベント |
 | 14 | `ui.js` | ログ、通知カード、HUD の更新 `updateUI`、点検レポート（`RANKS` / `showClearScreen`）、守った世帯数、図鑑（`codexIconURL` / `renderCodex`、タイトル画面から開く `openCodexScreen`） |
 | 15 | `qte.js` | 点検 QTE（`startQte` / `qtePress` / `resolveQte` / `updateQte`）とチュートリアル（`tutorialPending`）、クリックでの撮影 |
-| 16 | `game.js` | ゲームの流れ：`startGame` / `togglePause` / `resetGame`、衝突判定 `hitsBox`、カウントダウン、ゴール演出、墜落、区間と増水の進行 |
-| 17 | `main.js` | メインループ `animate`（経過秒 dt で動く。QTE の判定は実時間、移動・ダメージ・破片は `timeScale` を掛けたゲーム内の時間で進む）と起動処理 |
+| 16 | `boss.js` | ラスボス「ファットバーグ」（巨大な油のかたまり）：`boss`（状態）/ `resetBoss`、`updateBoss`（警報・追いつく・ボス戦・撃破／救援。`main.js` からドローンの速さを受け取る）、弱点の QTE の結果 `resolveBossQte`（`qte.js` から呼ばれる）、油のしずく、描画 `addBossSprites`（`renderWorld` から）/ `renderBossHud`（`renderOverlay` から） |
+| 17 | `game.js` | ゲームの流れ：`startGame` / `togglePause` / `resetGame`、衝突判定 `hitsBox`、カウントダウン、ゴール演出、墜落、区間と増水の進行 |
+| 18 | `main.js` | メインループ `animate`（経過秒 dt で動く。QTE の判定は実時間、移動・ダメージ・破片は `timeScale` を掛けたゲーム内の時間で進む）と起動処理 |
 
 ドット絵版だけの CSS は `pixel.css`（`style.css` のあとに読み込んで上書きする）。
 
@@ -129,7 +130,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
   - 押さなかった輪は、最後の輪なら輪が消えたとき、途中の輪なら GOOD の幅を過ぎたときに MISS になる（次の輪と取りちがえないため）
   - 画面では、名前の右に輪の数だけ四角を並べ（成功した輪はぬりつぶす）、あとから来る輪は灰色の細い輪で見せる
 - コンボは QTE の連続成功で数える（QTE 1回で1つ。MISS か衝突で切れる）。得点は輪ごとに PERFECT 300・GOOD 150 を足し、コンボ倍率（最大5）を掛ける
-- ランクは成功率（成功数 / 点検ポイントの数）で決める。S 85% / A 65% / B 40%（ゲーム内の目安。全難易度共通）
+- ランクは成功率（成功数 / 点検ポイントの数）で決める。S 85% / A 65% / B 40%（ゲーム内の目安。全難易度共通）。ラスボスの弱点（5か所）も点検ポイントとして数える
+
+### ラスボス（ファットバーグ。全難易度共通）
+
+- 台所から流された油が管の中で固まり、ウェットティッシュなどとからまってできる巨大なかたまり。2017年のロンドン（ホワイトチャペル）で長さ約250m・重さ約130トンのものが見つかった。東京都下水道局も「油・断・快適！下水道」で、油を流さず紙でふき取って可燃ごみに出すよう呼びかけている
+- コースは 600m。0〜300m（ZONE 1〜3：点検ポイント・増水・チェックポイント）はボスを入れる前と同じで、300m〜が ZONE 4（シールドトンネル）でのボスとの追いかけっこ
+  - 進む速さは 300m（`SPEED_RAMP_DIST`）までだんだん上がり、そのあとは一定。ZONE 4 でも止まらず、ふだんの速さのまま戦う
+  - チェックポイントは 75 / 150 / 225 / 290m（290m はボスの前の回復）
+- 流れ：318m で警報（ボスは管の奥をドローンの 0.6 倍の速さで転がっている）→ ドローンが追いつき、間が 40（ワールド単位）になったらボス戦（約 348m）→ ボスはその間をたもって同じ速さで進む → 撃破・救援の演出 → そのままゴール
+  - ボス・弱点・油のしずくはドローンといっしょに動くので、位置は毎フレーム `cam.z` から決める（しずくはドローンから見た速さで持ち、ドローンが進んだぶんを足す）。転がったあとの油のかけらはその場に残り、後ろへ流れていく
+- ボス戦：弱点の QTE（輪の数は難易度どおり）→ 油のしずくを2つ後ろへ投げてくる（ドローンをねらう。操縦でよける）をくり返す。弱点を5回撮影すると撃破（ボーナス 3000点）
+  - 制限時間 32 秒（実時間）か、572m まで進んでも撃破できなければ、高圧洗浄車が取りのぞく（ゲームは止めない。ランクの成功率が下がる。演出がゴールの 600m より前に終わるように 572m で打ち切る）
+  - 油のしずくのダメージは 6（障害物の 15 より小さく、ボス戦で墜落しにくくしてある）
+- 開発機で「毎回ぴったり押す」通しプレイ：ボス戦は約20〜21秒（撃破は EASY 455m / NORMAL 485m / HARD 518m あたり）、1回のプレイは約83〜97秒。何も押さないと 565m で時間切れ → 救援。結果画面のサブタイトルに「撃破！」か「救援で除去」を出す
 
 ### 難易度
 

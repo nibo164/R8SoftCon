@@ -76,8 +76,9 @@ function animate() {
   dt *= timeScale;
   f60 = dt * 60;
 
-  // 進行処理（奥へ進むほど少しずつ加速する。増水中は流れに押されてさらに速い）
-  const speedPerFrame = (baseSpeed + (distance / goalDistance) * 0.6) * diff.speedMul;
+  // 進行処理（SPEED_RAMP_DIST までは奥へ進むほど少しずつ加速し、そのあとは一定。増水中は流れに押されてさらに速い）
+  const ramp = Math.min(1, distance / SPEED_RAMP_DIST);
+  const speedPerFrame = (baseSpeed + ramp * 0.6) * diff.speedMul;
   const speed = speedPerFrame * 60 * (1 + floodK * 0.25); // 1秒あたり
   cam.z -= speed * dt;
   distance = Math.abs(cam.z) / zToMeterRatio;
@@ -94,6 +95,7 @@ function animate() {
   }
 
   updateCourseEvents();
+  updateBoss(dt, realDt, speed);
 
   // プレイヤー移動処理（キーボードとゲームパッドの両対応）
   const moveSpeed = 0.25 * 60; // 1秒あたり

@@ -90,6 +90,9 @@ function renderWorld(now) {
     list.push({ beam: true, dz: p.dz, cx: p.x, cy: p.y, w: w, h: h });
   });
 
+  // ラスボスと油のしずく（boss.js。draw を持つものは自分で描く）
+  addBossSprites(list, now);
+
   // 奥から順に描く（手前のものが上に重なる）
   list.sort((a, b) => b.dz - a.dz);
 
@@ -102,6 +105,10 @@ function renderWorld(now) {
   drawParticles(170, 1e9);
 
   list.forEach((s) => {
+    if (s.draw) {
+      s.draw();
+      return;
+    }
     const x = Math.round(s.cx - s.w / 2);
     const y = Math.round(s.cy - s.h / 2);
     const w = Math.max(1, Math.round(s.w));

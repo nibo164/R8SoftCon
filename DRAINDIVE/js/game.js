@@ -104,6 +104,7 @@ function resetGame() {
   droneVisible = true;
   setHudVisible(true);
   cancelQte();
+  resetBoss();
   qteSuccess = 0;
   qtePerfect = 0;
   qteTargets.forEach((o) => (o.qteStarted = false));

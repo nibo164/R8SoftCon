@@ -30,9 +30,17 @@ const ZONES = [
     desc: "まちじゅうの下水が集まる、太くて大事なトンネルだよ。",
     lamp: { every: 20, color: [110, 225, 255], angs: [0.7, Math.PI - 0.7] },
   },
+  {
+    // 300m〜ゴール：ラスボスとの追いかけっこ（boss.js）
+    name: "ZONE 4",
+    sub: "SHIELD TUNNEL",
+    jp: "ZONE 4：処理場へつづく最後の管",
+    desc: "大きな下水道管は、シールドマシンで地下をほり進み、「セグメント」というブロックを輪にして組み立ててつくるよ。",
+    lamp: { every: 24, color: [255, 96, 70], angs: [0.6, Math.PI - 0.6] },
+  },
 ];
 function zoneIndexAt(wz) {
-  return wz > -ZONE_LEN ? 0 : wz > -2 * ZONE_LEN ? 1 : 2;
+  return wz > -ZONE_LEN ? 0 : wz > -2 * ZONE_LEN ? 1 : wz > -3 * ZONE_LEN ? 2 : 3;
 }
 
 // 管の中心線のずれ（まっすぐな管の z → 実際の管の横・縦のずれ）
