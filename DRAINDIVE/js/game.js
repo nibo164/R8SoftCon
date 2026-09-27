@@ -94,6 +94,7 @@ function resetGame() {
   speedFactor = 0;
   currentZone = 0;
   floodWarned = false;
+  siphonShown = false;
   sirenTime = 0;
   floodK = 0;
   waterLevel = WATER_BASE;
@@ -317,6 +318,18 @@ function updateCourseEvents() {
     AudioSys.playZone();
     showInfoCard(z.jp, z.desc || "", "", 2600);
     addLog(`ENTERING ${z.name}: ${z.sub}`);
+  }
+
+  // 伏越し（ふせこし）：管がぐっともぐりはじめる少し前に説明する
+  if (!siphonShown && distance >= SIPHON_AT - 3) {
+    siphonShown = true;
+    showInfoCard(
+      "川の下をくぐる「伏越し（ふせこし）」だ！",
+      "川などをよけるため、管がいったん深くもぐって、また上がってくるよ",
+      "trivia",
+      3200,
+    );
+    addLog("COURSE: INVERTED SIPHON - DIVING UNDER THE RIVER");
   }
 
   // 増水：警報 → 水位の上下

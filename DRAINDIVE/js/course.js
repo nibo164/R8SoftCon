@@ -43,6 +43,35 @@ function zoneIndexAt(wz) {
   return wz > -ZONE_LEN ? 0 : wz > -2 * ZONE_LEN ? 1 : wz > -3 * ZONE_LEN ? 2 : 3;
 }
 
+// ------------------------------------------------------------
+// 上下の曲がり
+//   本物の下水道は水が自然に流れるよう、ずっと下り坂でつくる（上り坂があると低いところに汚れがたまる）。
+//   なので上下は「ぐっと下って、また平らにもどる」をくり返すだけにして、上り坂はつくらない。
+//   例外は伏越し（ふせこし）：川などの下をくぐるため、管がいったん深くもぐって また上がる。ここだけ上り坂がある
+// ------------------------------------------------------------
+const DROP_METERS = [45, 80, 160, 205, 250, 315, 375, 435, 495]; // 下り坂の始まり[m]
+const DROP_LEN = 300; // 1つの下り坂の長さ（ワールド単位。30m）
+const DROP_H = 16; // 1つの下り坂で下がる高さ
+const SIPHON_AT = 115; // 伏越しの始まり[m]（ZONE 2。増水・ボス戦と重ならない場所）
+const SIPHON_LEN = 300; // 伏越しの長さ（ワールド単位。30m）
+const SIPHON_DEPTH = 16; // 伏越しでもぐる深さ
+
+// 0→1 になめらかに変わる曲線（曲がりのきつさも両はしで0になるので、急に押されない）
+function smootherstep(t) {
+  t = Math.min(1, Math.max(0, t));
+  return t * t * t * (t * (t * 6 - 15) + 10);
+}
+// 奥へ進んだ距離 d（ワールド単位）での管の中心の高さ
+function courseHeight(d) {
+  let y = 0;
+  for (let i = 0; i < DROP_METERS.length; i++) {
+    y -= DROP_H * smootherstep((d - DROP_METERS[i] * 10) / DROP_LEN);
+  }
+  const f = (d - SIPHON_AT * 10) / SIPHON_LEN;
+  if (f > 0 && f < 1) y -= SIPHON_DEPTH * Math.pow(Math.sin(Math.PI * f), 4);
+  return y;
+}
+
 // 管の中心線のずれ（まっすぐな管の z → 実際の管の横・縦のずれ）
 // 最初の25mはまっすぐで、そこから少しずつカーブが強くなる
 function courseCenter(z, out) {
@@ -50,7 +79,7 @@ function courseCenter(z, out) {
   const env = Math.min(1, Math.max(0, (d - 250) / 400));
   const k = env * diff.curveMul; // 難易度でカーブの強さを変える
   out.x = k * (14 * Math.sin(d * 0.0105) + 6 * Math.sin(d * 0.0231 + 1.3));
-  out.y = k * (4 * Math.sin(d * 0.0083 + 0.7));
+  out.y = k * courseHeight(d);
   return out;
 }
 // カーブのきつさ（中心線の2階微分）。遠心力の計算に使う

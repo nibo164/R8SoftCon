@@ -10,7 +10,7 @@
 let hp = 100;
 let score = 0;
 let distance = 0;
-const goalDistance = 600; // メートル換算（300m〜は ZONE 4。ラスボスとの追いかけっこ）
+const goalDistance = 550; // メートル換算（300m〜は ZONE 4。ラスボスとの追いかけっこ）
 const SPEED_RAMP_DIST = 300; // ここまでは進むほど速くなり、そのあとは一定（ZONE 3 までの手ざわりを変えないため）
 const zToMeterRatio = 10; // Z座標10単位 = 1メートル
 const baseSpeed = 1.3;
@@ -43,5 +43,6 @@ let resultShown = false; // クリア／ゲームオーバー画面が出てい�
 let speedFactor = 0; // 0〜1：スピード演出の強さ
 let currentZone = 0;
 let floodWarned = false;
+let siphonShown = false; // 伏越し（川の下をくぐる区間）の説明を出したか
 let sirenTime = 0; // 大雨警報の警告灯を出す残り時間
 

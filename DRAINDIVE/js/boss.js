@@ -21,8 +21,9 @@
 const BOSS_WARN_AT = 318; // 警報を出す距離[m]（ZONE 4 の表示と重ならないよう少しあと）
 const BOSS_START_GAP = 160; // 警報のときのボスとの間（ワールド単位。見えるぎりぎりの奥）
 const BOSS_GAP = 40; // ボス戦中のボスとの間（ワールド単位。カメラからは 46）
-const BOSS_APPROACH = 0.6; // 追いつくまでのボスの速さ（ドローンの速さに対する割合）
-const BOSS_END_AT = 572; // ここまで進んでも撃破できなければ救援[m]（演出がゴール前に終わるように）
+const BOSS_APPROACH = 0.3; // 追いつくまでのボスの速さ（ドローンの速さに対する割合。約17mで追いつく）
+const BOSS_END_AT = 530; // ここまで進んでも撃破できなければ救援[m]（ボスが消える演出が 550m のゴール前に終わるように）
+const BOSS_PAUSE = 1.0; // 油を投げ終わってから次の弱点までの時間（ゲーム内の秒。短いほどボス戦で進む距離が短い）
 const BOSS_HP = 5; // 撃破に必要な弱点の撮影回数
 const BOSS_TIME = 32; // 制限時間（秒）
 const BOSS_BONUS = 3000; // 撃破ボーナス
@@ -32,6 +33,13 @@ const BOSS_THROWS = 2; // 弱点の QTE のあとに投げてくる油のしず�
 const BLOB_SPEED = 42; // 油のしずくの速さ（1秒あたり）
 const BLOB_DAMAGE = 6; // 油のしずくが当たったときのダメージ（ボス戦で墜落しにくいよう、障害物の 15 より小さい）
 const FAT_COLORS = ["#e6dca8", "#c9bb7e", "#f4efd0", "#9c8e58"];
+// 油の波（後半の攻撃）：管の底から盛り上がった油が押し寄せてくる。上に飛んでよける（しずくは左右でよける）
+//   ※ 油が波になって押し寄せるのはゲームの演出（事実として説明しない）
+const WAVE_FROM_HITS = 2; // 弱点をこの数だけ撮影したあとは、しずくと波を交互に出す
+const WAVE_CHARGE = 0.6; // 波を出す前にボスが震える時間（予告。ゲーム内の秒）
+const WAVE_TOP = 2; // 波のてっぺんの高さ（管の中心が 0、底が -10。管の下 6 割くらいが波になる）
+const WAVE_SPEED = 40; // 波がドローンに近づく速さ（ドローンから見た速さ。1秒あたり）
+const WAVE_DAMAGE = 10; // 波に当たったときのダメージ（よける動きが大きいぶん、しずくより重い）
 
 // ------------------------------------------------------------
 // ドット絵（油のかたまり本体・当たったときの白いシルエット・油のしずく）
@@ -120,6 +128,36 @@ function createBlobSprites() {
 }
 const blobSprites = createBlobSprites();
 
+// 油の波（2コマ。泡の位置をずらしてうねって見せる）
+//   管の幅いっぱい（ワールドで横 20・縦 12。底 -10 から WAVE_TOP まで）。管の円の外にははみ出さない形にする
+function createWaveFrames() {
+  const w = 48;
+  const h = 26;
+  const frames = [];
+  for (let f = 0; f < 2; f++) {
+    const img = makePixels(w, h);
+    for (let py = 0; py < h; py++) {
+      for (let px = 0; px < w; px++) {
+        const wx = ((px + 0.5) / w) * 20 - 10;
+        const wy = WAVE_TOP - ((py + 0.5) / h) * (WAVE_TOP + 10);
+        const top = WAVE_TOP - 1.4 * (0.5 + 0.5 * Math.sin(wx * 0.9 + f * Math.PI)); // うねる波頭
+        if (wy > top || wx * wx + wy * wy > 97) continue;
+        const depth = top - wy;
+        let c;
+        if (depth < 0.5) c = Math.random() < 0.5 ? "#fffbe6" : "#f4efd0"; // 泡
+        else if (depth < 2.5) c = pick(["#e6dca8", "#e6dca8", "#d9cf9c"]);
+        else if (depth < 6) c = pick(["#c9bb7e", "#c2b57c", "#d0c38a"]);
+        else c = pick(["#9c8e58", "#a89a62"]);
+        setPx(img, px, py, c);
+      }
+    }
+    addOutline(img, "#2a2210");
+    frames.push(makeShadedVariants(img));
+  }
+  return frames;
+}
+const waveFrames = createWaveFrames();
+
 // ------------------------------------------------------------
 // 状態
 //   state: idle（まだ）→ warned（警報のあと、追いついていく）→ fight（ボス戦）
@@ -143,6 +181,9 @@ function resetBoss() {
   boss.result = null; // "defeated"（撃破）/ "rescued"（救援）
   boss.weak = null; // いまの弱点（QTE の対象）。ボスからのずれ wx / wy を持つ
   boss.blobs = []; // 飛んでいる油のしずく（位置はボスと同じく、ドローンから見た動きで進める）
+  boss.waves = []; // 押し寄せてくる油の波
+  boss.charge = 0; // >0 のあいだ、波を出す前の予告（ボスが震える）
+  boss.lastAttack = "blobs"; // 直前の攻撃（後半はしずくと波を交互に出す）
 }
 resetBoss();
 
@@ -232,6 +273,7 @@ function updateBoss(dt, realDt, speed) {
 
   boss.hurt = Math.max(0, boss.hurt - realDt);
   updateBlobs(dt, speed);
+  updateWaves(dt, speed);
   if (bossActive()) Music.intense = true;
 }
 
@@ -284,9 +326,25 @@ function updateBossFight(dt, realDt) {
         finishBoss(true);
         return;
       }
-      boss.step = "throw";
-      boss.throwLeft = BOSS_THROWS;
-      boss.next = 0.25;
+      // 後半（弱点を WAVE_FROM_HITS 回撮影したあと）は、しずくと波を交互に出す
+      if (boss.hits >= WAVE_FROM_HITS && boss.lastAttack !== "wave") {
+        boss.step = "wave";
+        boss.lastAttack = "wave";
+        boss.charge = WAVE_CHARGE;
+        AudioSys.tone(90, 55, 0.6, "sawtooth", 0.18); // 「ゴゴゴ…」
+      } else {
+        boss.step = "throw";
+        boss.lastAttack = "blobs";
+        boss.throwLeft = BOSS_THROWS;
+        boss.next = 0.25;
+      }
+    }
+  } else if (boss.step === "wave") {
+    boss.charge -= dt;
+    if (boss.charge <= 0) {
+      spawnWave();
+      boss.step = "pause";
+      boss.next = BOSS_PAUSE;
     }
   } else if (boss.step === "throw") {
     boss.next -= dt;
@@ -296,7 +354,7 @@ function updateBossFight(dt, realDt) {
       boss.next = 0.45;
       if (boss.throwLeft <= 0) {
         boss.step = "pause";
-        boss.next = 1.3;
+        boss.next = BOSS_PAUSE;
       }
     }
   }
@@ -338,6 +396,8 @@ function finishBoss(defeated) {
   boss.phaseT = 0;
   boss.result = defeated ? "defeated" : "rescued";
   boss.blobs.length = 0;
+  boss.waves.length = 0;
+  boss.charge = 0;
   if (qte && qte.obj.boss) cancelQte();
   FX.flash("255,255,255", 0.9);
   shakeIntensity = 1.0;
@@ -411,6 +471,50 @@ function updateBlobs(dt, speed) {
 }
 
 // ------------------------------------------------------------
+// 油の波（管の底から盛り上がって押し寄せる。WAVE_TOP より上を飛んでいればよけられる）
+//   しずくと同じく、ドローンから見た速さで近づけ、ドローンが進んだぶん（-speed）を足す
+// ------------------------------------------------------------
+function spawnWave() {
+  boss.waves.push({ z: boss.z + 3, done: false });
+  shakeIntensity = Math.max(shakeIntensity, 0.5);
+  AudioSys.playSplash();
+  AudioSys.noise(0.6, 400, 0.35);
+  FX.burst(boss.x, -pipeRadius + 1, boss.z + 3, FAT_COLORS, 30, 12, 0.8);
+  addLog("BOSS: GREASE WAVE INCOMING", "warning");
+}
+
+function updateWaves(dt, speed) {
+  for (let i = boss.waves.length - 1; i >= 0; i--) {
+    const w = boss.waves[i];
+    w.z += (WAVE_SPEED - speed) * dt;
+    // 波がドローンの位置まで来たら1回だけ判定する
+    if (!w.done && w.z >= cam.z - 0.5) {
+      w.done = true;
+      if (isGameOver) continue;
+      if (cam.y - 0.5 < WAVE_TOP) {
+        hp -= dmg(WAVE_DAMAGE);
+        collidedCount++;
+        shakeIntensity = 1.0;
+        hurtBlink = 0.7;
+        combo = 0;
+        updateComboUI();
+        AudioSys.playSplash();
+        AudioSys.playDamage();
+        FX.flash("255,220,120", 0.6);
+        FX.burst(cam.x, cam.y, cam.z - 1, FAT_COLORS, 36, 11, 0.9);
+        addLog(`SYS DANGER: GREASE WAVE HIT (-${WAVE_DAMAGE}%)`, "danger");
+      } else {
+        // よけられた（動画で見ても分かるように、ドローンの上に文字を出す）
+        const sp = project(cam.x, cam.y, cam.z);
+        if (sp) FX.pop(sp.x, sp.y - 6, "DODGE!", "#6dff7a");
+        AudioSys.tone(880, 1320, 0.12, "square", 0.08);
+      }
+    }
+    if (w.z > cam.z + 10) boss.waves.splice(i, 1);
+  }
+}
+
+// ------------------------------------------------------------
 // 描画（render-world.js の renderWorld から呼ばれる。奥行き順に並べる list に入れる）
 // ------------------------------------------------------------
 function addBossSprites(list, now) {
@@ -427,9 +531,11 @@ function addBossSprites(list, now) {
         draw: () => {
           const sw = Math.max(1, Math.round(w * p.s));
           const sh = Math.max(1, Math.round(h * p.s));
-          const jit = boss.hurt > 0 ? randInt(-1, 1) : 0;
+          // 当たったときと、波を出す前の予告のときは震える
+          const shaking = boss.hurt > 0 || boss.charge > 0;
+          const jit = shaking ? randInt(-1, 1) : 0;
           const x = Math.round(p.x - sw / 2) + jit;
-          const y = Math.round(p.y - sh / 2);
+          const y = Math.round(p.y - sh / 2) + (boss.charge > 0 ? randInt(-1, 1) : 0);
           const wl = Math.round(waterlineY(p.dz));
           const visH = Math.min(sh, wl - y);
           if (visH <= 0) return;
@@ -440,6 +546,20 @@ function addBossSprites(list, now) {
       });
     }
   }
+  boss.waves.forEach((wv) => {
+    const p = project(0, (WAVE_TOP - pipeRadius) / 2, wv.z);
+    if (!p || p.dz > 170) return;
+    list.push({
+      dz: p.dz,
+      draw: () => {
+        const sw = Math.max(1, Math.round(20 * p.s));
+        const sh = Math.max(1, Math.round((WAVE_TOP + pipeRadius) * p.s));
+        const lv = Math.max(3, spriteLevel(p.x, p.y, p.dz, wv.z));
+        const src = waveFrames[Math.floor(now / 120) % 2][lv];
+        ctx.drawImage(src, Math.round(p.x - sw / 2), Math.round(p.y - sh / 2), sw, sh);
+      },
+    });
+  });
   boss.blobs.forEach((b) => {
     const p = project(b.x, b.y, b.z);
     if (!p) return;
@@ -471,5 +591,10 @@ function renderBossHud(now) {
   const warn = left <= 8;
   if (!warn || Math.floor(now / 250) % 2 === 0) {
     drawText(`TIME ${left}`, W / 2, 38, 1, warn ? "#ff4d6d" : "#ffffff");
+  }
+  // 油の波の予告と、波が来るまでのあいだ：画面の下に「UP!」を点滅（上に飛んでよける合図）
+  const waveComing = boss.charge > 0 || boss.waves.some((w) => !w.done);
+  if (waveComing && Math.floor(now / 150) % 2 === 0) {
+    drawText("UP!", W / 2, SCREEN_H - 38, 2, "#ffe14d");
   }
 }
