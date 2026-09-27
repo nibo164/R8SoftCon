@@ -44,6 +44,10 @@ function setupScreen() {
   const baseH = touch ? 630 : UI_BASE_H;
   const uiScale = Math.min(winW / baseW, winH / baseH);
   document.documentElement.style.setProperty("--ui-scale", uiScale);
+  // 実際に見えている高さ（iPhone の Safari の 100vh はアドレスバーのぶんも含むので、CSS ではこちらを使う）
+  document.documentElement.style.setProperty("--app-h", `${winH}px`);
+  // 開いている画面が収まらなくなったら縮めなおす（ui.js。読み込み前の起動時は何もしない）
+  if (typeof fitOpenScreens === "function") fitOpenScreens();
 
   const fullW = Math.round(SCREEN_H * (winW / winH));
   SCREEN_W = Math.max(200, Math.min(480, fullW));

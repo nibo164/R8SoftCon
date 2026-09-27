@@ -306,6 +306,36 @@ const CODEX_KIND_TEXT = {
 };
 const codexScreenEl = document.getElementById("codexScreen");
 
+// ============================================================
+// 画面に収まらない画面を縮める
+//   UI は --ui-scale で画面に合わせているが、項目の多い結果画面などは、横向きのスマホのように
+//   縦が短い画面だと下がはみ出し、いちばん下のボタンが押せなくなる。そのときは、その画面だけさらに縮める
+// ============================================================
+const FIT_TARGETS = [
+  ["clearScreen", ".clear-content"],
+  ["gameOverScreen", ".gameover-content"],
+  ["codexScreen", ".codex-screen-content"],
+];
+function fitToScreen(el) {
+  if (!el) return;
+  el.style.zoom = "";
+  el.style.maxHeight = "";
+  const h = el.getBoundingClientRect().height;
+  const avail = window.innerHeight * 0.96;
+  if (h > avail && h > 0) {
+    // 高さの上限（スクロール）をはずして、全体が見える大きさまで縮める
+    el.style.maxHeight = "none";
+    const full = el.getBoundingClientRect().height;
+    el.style.zoom = String(Math.max(0.5, avail / full));
+  }
+}
+function fitOpenScreens() {
+  FIT_TARGETS.forEach(([id, sel]) => {
+    const screen = document.getElementById(id);
+    if (screen && screen.style.display !== "none") fitToScreen(screen.querySelector(sel));
+  });
+}
+
 function openCodexScreen() {
   if (codexOpen || isGameStarted || isGameOver || !codexScreenEl) return;
   codexOpen = true;
@@ -313,6 +343,7 @@ function openCodexScreen() {
   buildCodexScreen();
   codexScreenEl.style.display = "flex";
   codexScreenEl.offsetHeight; // リフロー強制
+  fitToScreen(codexScreenEl.querySelector(".codex-screen-content"));
   codexScreenEl.style.opacity = 1;
   AudioSys.init();
   AudioSys.resume();
@@ -468,6 +499,7 @@ function showClearScreen() {
   if (clearScreen) {
     clearScreen.style.display = "flex";
     clearScreen.offsetHeight;
+    fitToScreen(clearScreen.querySelector(".clear-content"));
     clearScreen.style.opacity = 1;
   }
 }
