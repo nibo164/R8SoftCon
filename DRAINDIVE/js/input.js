@@ -22,20 +22,29 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     return;
   }
-  // タイトル画面：C で図鑑を開く
+  // タイトル画面・準備画面：C で図鑑を開く
   if (!isGameStarted && !isGameOver && normalizeKey(e) === "c") {
     openCodexScreen();
     return;
   }
-  // タイトル画面：←→（A・D）で難易度を選ぶ
-  if (!isGameStarted && !isGameOver) {
+  // タイトル画面：なにかキーを押すと準備画面へ（M は音の切り替えだけにする）
+  if (titleOpen) {
+    if (normalizeKey(e) !== "m" && isAnyKey(e)) {
+      e.preventDefault();
+      leaveTitleScreen();
+      return;
+    }
+  } else if (!isGameStarted && !isGameOver) {
+    // 準備画面：↑↓（W・S）/ ←→（A・D）で難易度を選び、ESC / Backspace でタイトルへもどる
     const k = normalizeKey(e);
-    if (k === "ArrowLeft" || k === "a") selectDifficulty(-1);
-    if (k === "ArrowRight" || k === "d") selectDifficulty(1);
-  }
-  // スペースキーで起動
-  if (e.key === " " && !isGameStarted && !isGameOver) {
-    startGame();
+    if (k === "ArrowUp" || k === "w" || k === "ArrowLeft" || k === "a") selectDifficulty(-1);
+    if (k === "ArrowDown" || k === "s" || k === "ArrowRight" || k === "d") selectDifficulty(1);
+    if (k === "Escape" || k === "Backspace") {
+      showTitleScreen();
+      return;
+    }
+    // スペースキーで起動（タイトルを抜けたときのキーを押しっぱなしにしていても発進しない）
+    if (e.key === " " && !e.repeat) startGame();
   }
   // 一時停止中のメニュー操作（↑↓ / W・S で選び、Enter / スペースで決定）
   if (isPaused && !isGameOver) {
@@ -113,15 +122,21 @@ const Pad = {
     const status = document.getElementById("padStatus");
     if (status) status.innerText = on ? "GAMEPAD" : "KEYBOARD";
 
-    // スタート画面の操作説明をパッド用に切り替える
+    // タイトル画面・準備画面の案内をパッド用に切り替える
     const padInfo = document.getElementById("padInstructions");
     if (padInfo) padInfo.style.display = on ? "block" : "none";
+    const titlePrompt = document.getElementById("titlePrompt");
+    if (titlePrompt) titlePrompt.innerText = on ? "PRESS ANY BUTTON" : "PRESS ANY KEY";
+    const titlePromptJp = document.getElementById("titlePromptJp");
+    if (titlePromptJp) {
+      titlePromptJp.innerText = on ? "なにかボタンをおしてね" : "なにかキーをおしてね";
+    }
     const prompt = document.getElementById("startPrompt");
     if (prompt) {
-      prompt.innerText = on
-        ? "PRESS [A] BUTTON TO LAUNCH DRONE"
-        : "PRESS [SPACE] TO LAUNCH DRONE";
+      prompt.innerText = on ? "PRESS [A]\nTO LAUNCH" : "PRESS [SPACE]\nTO LAUNCH";
     }
+    const back = document.getElementById("setupBack");
+    if (back) back.innerText = on ? "[B] タイトルへもどる" : "[ESC] タイトルへもどる";
 
     if (on) addLog(`GAMEPAD CONNECTED: ${label || "CONTROLLER"}`);
     else addLog("GAMEPAD DISCONNECTED", "warning");
@@ -184,17 +199,22 @@ const Pad = {
     }
 
     if (!isGameStarted && !isGameOver) {
-      // 十字キー / スティックの左右で難易度を選び、A で発進
       // Y で点検図鑑を開く（図鑑の中は十字キーで選び、B / Y / START でもどる）
+      // タイトル画面：Y 以外のどのボタンでも準備画面へ
+      // 準備画面：十字キー / スティックの上下・左右で難易度を選び、A で発進、B でタイトルへ
       if (codexOpen) {
         if (menuMovedX) moveCodexSel(menuDirX, 0);
         if (menuMoved) moveCodexSel(0, menuDir);
         if (bPressed || yPressed || startPressed) closeCodexScreen();
       } else if (yPressed) {
         openCodexScreen();
+      } else if (titleOpen) {
+        if (pad.buttons.some((b, i) => this.pressed(pad, i))) leaveTitleScreen();
       } else {
+        if (menuMoved) selectDifficulty(menuDir);
         if (menuMovedX) selectDifficulty(menuDirX);
-        if (aPressed) startGame();
+        if (bPressed) showTitleScreen();
+        else if (aPressed) startGame();
       }
     } else if (isGameOver) {
       // クリア／ゲームオーバー画面：Aボタンでタイトルへ戻る
@@ -261,8 +281,63 @@ function blurActiveButton() {
 }
 
 // ============================================================
-// 難易度の選択（タイトル画面）
-//   ←→ / 十字キー / スティックで選び、SPACE / A で発進。クリックするとそのまま発進
+// タイトル画面 ⇄ 準備画面
+//   タイトル：なにかキー / クリック / パッドのボタンで準備画面へ（C・Y は図鑑、M は音の切り替え）
+//   準備画面：ESC / Backspace / パッドの B でタイトルへもどる
+//   ゲームが終わったあと（resetGame）は準備画面へもどる
+// ============================================================
+let titleOpen = true;
+const titleScreenEl = document.getElementById("titleScreen");
+const startScreenEl = document.getElementById("startScreen");
+
+// 「なにかキー」に数えないキー（ブラウザの操作やキーの組み合わせで勝手に進まないように）
+function isAnyKey(e) {
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return false;
+  if (/^F\d+$/.test(e.key)) return false;
+  return !["Shift", "Control", "Alt", "Meta", "Tab", "CapsLock"].includes(e.key);
+}
+
+// 画面をカクカクとフェードさせて切り替える（transition は pixel.css）
+function fadeScreen(el, show) {
+  if (!el) return;
+  if (show) {
+    el.style.display = "flex";
+    el.offsetHeight; // リフロー強制
+    el.style.opacity = 1;
+  } else {
+    el.style.opacity = 0;
+    setTimeout(() => {
+      if (el.style.opacity === "0") el.style.display = "none";
+    }, 400);
+  }
+}
+
+function leaveTitleScreen() {
+  if (!titleOpen) return;
+  titleOpen = false;
+  blurActiveButton();
+  fadeScreen(titleScreenEl, false);
+  fadeScreen(startScreenEl, true);
+  // 最初の操作で音を鳴らせるようにしておく（ブラウザは操作があるまで音を出さない）
+  AudioSys.init();
+  AudioSys.resume();
+  AudioSys.tone(660, 1320, 0.12, "square", 0.09);
+}
+
+function showTitleScreen() {
+  if (titleOpen || isGameStarted || isGameOver || codexOpen) return;
+  titleOpen = true;
+  blurActiveButton();
+  fadeScreen(startScreenEl, false);
+  fadeScreen(titleScreenEl, true);
+  AudioSys.tone(990, 660, 0.1, "square", 0.08);
+}
+
+titleScreenEl.addEventListener("click", leaveTitleScreen);
+
+// ============================================================
+// 難易度の選択（準備画面）
+//   ↑↓ / ←→ / 十字キー / スティックで選び、SPACE / A で発進。クリックするとそのまま発進
 // ============================================================
 const DIFF_NOTES = {
   easy: "ゆっくり進むよ。最初に「撮影」の練習ができる",

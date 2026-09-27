@@ -66,6 +66,7 @@
 }
 
 /* 画面全体を覆う背景：ぼかしの代わりに 2px の網目（ディザ）で暗くする */
+.pixel-ui #titleScreen,
 .pixel-ui #startScreen,
 .pixel-ui #pauseScreen,
 .pixel-ui #clearScreen,
@@ -114,7 +115,7 @@
 }
 
 /* 大きな見出し（立体的に押し出した影つき） */
-.pixel-ui #startScreen h1,
+.pixel-ui #titleScreen h1,
 .pixel-ui #pauseScreen h2,
 .pixel-ui #clearScreen h2,
 .pixel-ui #gameOverScreen h2 {
@@ -123,14 +124,15 @@
   letter-spacing: 2px;
   line-height: 1.3;
 }
-.pixel-ui #startScreen h1 {
-  font-size: 44px;
-  margin: 6px 0 14px 0;
+.pixel-ui #titleScreen h1 {
+  font-size: clamp(40px, 7vw, 88px);
+  letter-spacing: 6px;
+  margin: 18px 0 10px 0;
   color: var(--px-yellow);
   text-shadow:
-    4px 4px 0 var(--px-orange),
-    8px 8px 0 #7a2a10,
-    -2px -2px 0 var(--px-dark);
+    6px 6px 0 var(--px-orange),
+    12px 12px 0 #7a2a10,
+    -3px -3px 0 var(--px-dark);
 }
 .pixel-ui #pauseScreen h2 {
   font-size: 24px;
@@ -162,11 +164,115 @@
   color: var(--px-cyan);
 }
 
-/* ---------------- タイトル画面 ---------------- */
+/* ---------------- タイトル画面（ロゴと PRESS ANY KEY だけ） ---------------- */
+.pixel-ui #titleScreen {
+  position: absolute;
+  inset: 0;
+  z-index: 21; /* 準備画面より上、図鑑より下 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+}
+.pixel-ui .title-content .title-drone {
+  width: 260px;
+  height: 130px;
+}
+.pixel-ui .title-sub {
+  font-family: var(--px-jp);
+  font-size: 22px;
+  letter-spacing: 8px;
+  color: var(--px-cyan);
+  margin: 0 0 48px 0;
+}
+.pixel-ui #titleScreen .blink-text {
+  font-size: 22px;
+  margin: 0 !important;
+}
+.pixel-ui .title-prompt-jp {
+  font-family: var(--px-jp);
+  font-size: 16px;
+  color: var(--px-white);
+  margin: 12px 0 0 0;
+}
+
+/* ---------------- 準備画面（左：説明と操作 / 右：難易度） ---------------- */
+/* 左右のパネル（どちらも .start-content のドット枠）を横に並べ、下に「タイトルへもどる」を置く */
+.pixel-ui .setup-layout {
+  width: min(1040px, 94vw);
+}
+/* 左右の幅は 1:1（flex だと左のパネルの padding のぶん左が広くなるので grid で等分する） */
+.pixel-ui .setup-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: stretch;
+}
 .pixel-ui .start-content {
   --f: var(--px-yellow);
-  padding: 26px 44px 22px 44px;
-  max-width: 640px;
+  padding: 22px 32px 20px 32px;
+  box-sizing: border-box;
+  text-align: left;
+}
+.pixel-ui .setup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 18px 0;
+}
+.pixel-ui .setup-heading {
+  font-family: var(--px-head);
+  font-size: 18px;
+  color: var(--px-yellow);
+  text-shadow: 3px 3px 0 #7a5a00;
+}
+.pixel-ui .setup-heading-jp,
+.pixel-ui .setup-section-jp {
+  font-family: var(--px-jp);
+  font-size: 13px;
+  color: #8a94a6;
+  text-shadow: none;
+  margin-left: 12px;
+}
+/* 右の列：難易度のパネルと点検図鑑のボタンを 3:1 の高さで縦に並べる */
+.pixel-ui .setup-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.pixel-ui .setup-right-col .codex-open-btn {
+  flex: 1 1 0;
+  width: 100%;
+}
+.pixel-ui .setup-right {
+  flex: 3 1 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  text-align: center;
+}
+.pixel-ui .setup-section {
+  font-family: var(--px-head);
+  font-size: 11px;
+  color: var(--px-cyan);
+  margin: 0 0 8px 0;
+}
+.pixel-ui .setup-left .jp-intro {
+  margin: 0 0 18px 0;
+}
+.pixel-ui .setup-left .instructions p {
+  margin: 8px 0 12px 0;
+}
+.pixel-ui .setup-right .blink-text {
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 18px 0 0 0 !important;
+}
+.pixel-ui .setup-back {
+  margin: 16px 0 0 0;
+  text-align: right;
 }
 .pixel-ui .title-drone {
   width: 130px;
@@ -913,37 +1019,57 @@
 .pixel-ui .start-content {
   position: relative;
 }
+/* 準備画面の図鑑ボタン：ほかのパネルと同じ濃紺の地＋黄色のドット枠。左にアイコン、右に文字 */
 .pixel-ui .codex-open-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
+  --f: var(--px-yellow);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
   font-family: var(--px-head);
-  font-size: 10px;
+  font-size: 16px;
   line-height: 1.3;
-  color: var(--px-dark);
-  background: var(--px-cyan);
+  text-align: left;
+  color: var(--px-yellow);
+  background: var(--px-panel);
   border: none;
   border-radius: 0;
-  padding: 8px 10px 6px 10px;
+  padding: 10px 20px;
   cursor: pointer;
   box-shadow:
-    0 -3px 0 0 var(--px-dark),
-    0 3px 0 0 var(--px-dark),
-    -3px 0 0 0 var(--px-dark),
-    3px 0 0 0 var(--px-dark),
-    3px 6px 0 0 var(--px-shadow),
-    inset -3px -3px 0 0 rgba(0, 0, 0, 0.2),
-    inset 3px 3px 0 0 rgba(255, 255, 255, 0.4);
+    0 -4px 0 0 var(--f),
+    0 4px 0 0 var(--f),
+    -4px 0 0 0 var(--f),
+    4px 0 0 0 var(--f),
+    8px 4px 0 0 var(--px-shadow),
+    4px 8px 0 0 var(--px-shadow),
+    inset 4px 4px 0 0 rgba(255, 255, 255, 0.06),
+    inset -4px -4px 0 0 rgba(0, 0, 0, 0.35);
 }
+/* マウスを乗せると枠が白くなる */
 .pixel-ui .codex-open-btn:hover {
-  background: #b3efff;
-  transform: translateY(-2px);
+  --f: var(--px-white);
+}
+.pixel-ui .codex-open-icon {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+  box-shadow: 0 0 0 3px var(--px-dark);
 }
 .pixel-ui .codex-open-jp {
   display: block;
   font-family: var(--px-jp);
-  font-size: 12px;
-  margin-top: 4px;
+  font-size: 15px;
+  color: var(--px-white);
+  margin-top: 6px;
+}
+.pixel-ui .codex-open-progress {
+  display: block;
+  font-family: var(--px-jp);
+  font-size: 13px;
+  color: var(--px-cyan);
+  margin-top: 2px;
 }
 .pixel-ui #codexScreen {
   position: absolute;
@@ -1117,7 +1243,7 @@
 .pixel-ui .diff-buttons {
   display: flex;
   justify-content: center;
-  gap: 18px;
+  gap: 14px;
 }
 .pixel-ui .diff-btn {
   --f: #3a4458;
@@ -1129,6 +1255,7 @@
   border: none;
   border-radius: 0;
   padding: 10px 12px 8px 12px;
+  height: 128px;
   width: 128px;
   cursor: pointer;
   box-shadow:

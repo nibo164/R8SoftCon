@@ -6,7 +6,7 @@
 
 // ゲーム開始（スペースキー / ゲームパッドのAボタン から呼ばれる）
 function startGame() {
-  if (isGameStarted || isGameOver || codexOpen) return;
+  if (isGameStarted || isGameOver || codexOpen || titleOpen) return;
   isGameStarted = true;
   // 選んだ難易度でコースを並べ直す（毎回ちがう配置になる）
   placeObjects(diff);
@@ -142,6 +142,8 @@ function resetGame() {
   // 図鑑カード・コンボ表示を隠す
   hideInfoCard();
   updateComboUI();
+  // 準備画面の図鑑ボタンに、今回のプレイで見つけたぶんを反映する
+  updateCodexOpenBtn();
 
   // UI更新
   updateUI();

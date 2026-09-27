@@ -1,0 +1,2 @@
+{ "version": "0.0.1", "configurations": [ { "name": "drain-dive", "runtimeExecutable": "powershell.exe",
+    "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "DRAINDIVE/tools/serve.ps1"], "port": 8000 } ] }

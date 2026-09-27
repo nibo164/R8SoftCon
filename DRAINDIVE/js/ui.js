@@ -401,6 +401,15 @@ function updateCodexSelection() {
     : "";
 }
 
+// 準備画面の図鑑ボタン：アイコン（ひび割れで固定）と発見した種類の数
+function updateCodexOpenBtn() {
+  const icon = document.getElementById("codexOpenIcon");
+  if (icon && !icon.src) icon.src = codexIconURL("crack", true);
+  const found = CODEX_ORDER.filter((k) => codexSession[k] > 0).length;
+  const prog = document.getElementById("codexOpenProgress");
+  if (prog) prog.innerText = `発見 ${found} / ${CODEX_ORDER.length}`;
+}
+
 document.getElementById("codexOpenBtn").addEventListener("click", () => {
   blurActiveButton();
   openCodexScreen();

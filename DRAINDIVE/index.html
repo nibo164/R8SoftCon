@@ -92,73 +92,98 @@
       <div class="info-desc" id="infoDesc"></div>
     </div>
 
-    <!-- スタート待機画面 -->
-    <div id="startScreen">
-      <div class="start-content">
-        <!-- 点検図鑑を開くボタン（C キー / ゲームパッド Y でも開く） -->
-        <button id="codexOpenBtn" class="codex-open-btn">
-          CODEX<span class="codex-open-jp">図鑑 [C]</span>
-        </button>
-        <!-- ゲーム内と同じドローンのドット絵（pixel.js で描き込む） -->
+    <!-- タイトル画面（なにかキーを押すと準備画面へ進む） -->
+    <div id="titleScreen">
+      <div class="title-content">
+        <!-- ゲーム内と同じドローンのドット絵（main.js で描き込む） -->
         <img id="titleDrone" class="title-drone" alt="" />
         <h1>DRAIN DIVE</h1>
-        <div class="jp-intro">
-          <p>きみは「下水道点検ドローン」のパイロット！</p>
-          <p>点検ポイント <strong>！</strong> に近づくとスローモーション。</p>
-          <p>
-            輪がピントの枠に重なった瞬間に <strong>ボタンで撮影</strong> しよう！
-          </p>
-          <p>曲がりくねる管と、大雨の増水に気をつけて</p>
-          <p>300m 先のゴールを目指せ！</p>
-        </div>
-        <div class="instructions">
-          <p>
-            <span class="key-label">MOVE</span><span class="key">WASD</span
-            ><span class="key">←↑↓→</span>
-            <span class="key-label">INSPECT</span><span class="key">SPACE</span
-            ><span class="key">CLICK</span>
-          </p>
-          <p>
-            <span class="key-label">PAUSE</span><span class="key">ESC</span>
-            <span class="key-label">SOUND</span><span class="key">M</span>
-          </p>
-        </div>
-        <div class="pad-instructions" id="padInstructions">
-          <p class="pad-title">GAMEPAD DETECTED</p>
-          <p>
-            <span class="key-label">MOVE</span><span class="key">左スティック</span
-            ><span class="key">十字キー</span>
-            <span class="key-label">INSPECT</span><span class="key">A</span
-            ><span class="key">R2</span>
-          </p>
-          <p>
-            <span class="key-label">PAUSE</span><span class="key">START</span>
-            輪が重なった瞬間に A で撮影！
-          </p>
-        </div>
-        <!-- 難易度の選択（←→ / 十字キーで選ぶ。クリックするとそのまま発進） -->
-        <div class="diff-select">
-          <p class="diff-title">
-            SELECT MODE<span class="diff-hint">← → でえらぶ</span>
-          </p>
-          <div class="diff-buttons">
-            <button id="diff-easy" class="diff-btn">
-              EASY<span class="diff-jp">かんたん</span>
-            </button>
-            <button id="diff-normal" class="diff-btn selected">
-              NORMAL<span class="diff-jp">ふつう</span>
-            </button>
-            <button id="diff-hard" class="diff-btn">
-              HARD<span class="diff-jp">むずかしい</span>
+        <p class="blink-text" id="titlePrompt">PRESS ANY KEY</p>
+      </div>
+    </div>
+
+    <!-- 準備画面（左：ゲーム説明・操作方法 / 右：難易度の選択） -->
+    <div id="startScreen" style="display: none; opacity: 0">
+      <div class="setup-layout">
+        <div class="setup-panels">
+          <div class="start-content setup-left">
+            <div class="setup-header">
+              <div class="setup-heading">
+                MISSION BRIEFING
+              </div>
+            </div>
+            <p class="setup-section">HOW TO PLAY</p>
+            <div class="jp-intro">
+              <p>きみは「下水道点検ドローン」のパイロット！</p>
+              <p>点検ポイント <strong>！</strong> に近づくとスローモーション。</p>
+              <p>
+                輪がピントの枠に重なった瞬間に <strong>ボタンで撮影</strong> しよう！
+              </p>
+              <p>曲がりくねる管と、大雨の増水に気をつけて</p>
+              <p>300m 先のゴールを目指せ！</p>
+            </div>
+            <p class="setup-section">CONTROLS</p>
+            <div class="instructions">
+              <p>
+                <span class="key-label">MOVE</span><span class="key">WASD</span
+                ><span class="key">←↑↓→</span>
+                <span class="key-label">INSPECT</span><span class="key">SPACE</span
+                ><span class="key">CLICK</span>
+              </p>
+              <p>
+                <span class="key-label">PAUSE</span><span class="key">ESC</span>
+                <span class="key-label">SOUND</span><span class="key">M</span>
+              </p>
+            </div>
+            <div class="pad-instructions" id="padInstructions">
+              <p class="pad-title">GAMEPAD DETECTED</p>
+              <p>
+                <span class="key-label">MOVE</span><span class="key">左スティック</span
+                ><span class="key">十字キー</span>
+                <span class="key-label">INSPECT</span><span class="key">A</span
+                ><span class="key">R2</span>
+              </p>
+              <p>
+                <span class="key-label">PAUSE</span><span class="key">START</span>
+                輪が重なった瞬間に A で撮影！
+              </p>
+            </div>
+          </div>
+          <!-- 右の列：上に難易度のパネル（高さ 3/4）、下に点検図鑑のボタン -->
+          <div class="setup-right-col">
+            <div class="start-content setup-right">
+            <!-- 難易度の選択（←→ / ↑↓ / 十字キーで選ぶ。クリックするとそのまま発進） -->
+            <div class="diff-select">
+              <p class="diff-title">
+                SELECT MODE<span class="diff-hint">← → でえらぶ</span>
+              </p>
+              <div class="diff-buttons">
+                <button id="diff-easy" class="diff-btn">
+                  EASY
+                </button>
+                <button id="diff-normal" class="diff-btn selected">
+                  NORMAL
+                </button>
+                <button id="diff-hard" class="diff-btn">
+                  HARD
+                </button>
+              </div>
+              <p class="diff-note" id="diffNote"></p>
+            </div>
+            <p class="blink-text" id="startPrompt">PRESS [SPACE]<br />TO LAUNCH</p>
+            </div>
+            <!-- 点検図鑑を開くボタン（C キー / ゲームパッド Y でも開く） -->
+            <button id="codexOpenBtn" class="codex-open-btn">
+              <!-- ゲーム内のひび割れのドット絵（ui.js の updateCodexOpenBtn で描き込む） -->
+              <img id="codexOpenIcon" class="codex-open-icon" alt="" />
+              <span class="codex-open-text">
+                CODEX<span class="codex-open-jp">点検図鑑 [C]</span
+                ><span class="codex-open-progress" id="codexOpenProgress"></span>
+              </span>
             </button>
           </div>
-          <p class="diff-note" id="diffNote"></p>
         </div>
-        <div class="instructions">
-          <p class="blink-text" id="startPrompt">
-            PRESS [SPACE] TO LAUNCH DRONE
-          </p>
-        </div>
+        <p class="help-text setup-back" id="setupBack">[ESC] タイトルへもどる</p>
       </div>
     </div>
 
