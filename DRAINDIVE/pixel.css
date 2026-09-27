@@ -629,19 +629,63 @@
   box-sizing: border-box;
 }
 
-/* クリア画面は項目が多いので、1画面に収まるよう余白を詰める */
-.pixel-ui #clearScreen .clear-content {
-  padding: 20px 40px 22px 40px;
+/* クリア画面：見出しの下に3つのパネル（左：成績 / 右上：守った暮らし / 右下：点検図鑑）とボタン */
+.pixel-ui .clear-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 12px; /* パネルのドット枠と影がはみ出さないように */
   /* 画面の 94% まで。vh は zoom の中だと倍率ぶん大きくなり、iPhone の Safari ではアドレスバーのぶんも含むので、
      screen.js が入れる実際の見えている高さ（--app-h）を倍率で割って使う */
   max-height: calc(var(--app-h, 100vh) * 0.94 / var(--ui-scale, 1));
+  box-sizing: border-box;
+  overflow-y: auto;
   /* 収まらないときのスクロール（画面全体は touch-action: none なので、ここだけ縦のスクロールを許す） */
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
 }
-/* style.css の「幅 980px 以下で余白を詰める」は、ドット絵版では UI ごと縮小するので使わない */
-.pixel-ui .clear-columns {
-  gap: 36px;
+.pixel-ui .clear-panels {
+  display: flex;
+  gap: 28px;
+  align-items: stretch;
+}
+/* 左パネル（style.css の「高さの上限＋スクロール」は外がわの .clear-layout に移したので、ここでは使わない） */
+.pixel-ui #clearScreen .clear-left {
+  padding: 16px 32px 18px 32px;
+  max-height: none;
+  overflow: visible;
+}
+/* 左パネルがいちばん縦に長いので、すき間を少し詰める（PC の 1280×720 でなるべく縮めずに収まるように） */
+.pixel-ui #clearScreen .clear-left .rank-badge {
+  margin: 2px auto 6px auto;
+}
+.pixel-ui #clearScreen .clear-left .result-stats {
+  margin: 10px 0;
+  gap: 6px;
+  padding: 12px 22px;
+}
+.pixel-ui #clearScreen .clear-left .result-trivia {
+  margin-top: 10px;
+}
+/* 右の列：上下2つのパネル。図鑑のパネルが残りの高さを使い、左パネルと下をそろえる */
+.pixel-ui .clear-right {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 400px;
+}
+.pixel-ui .clear-right .impact-box,
+.pixel-ui .clear-right .codex-box {
+  width: 100%;
+  margin: 0;
+}
+.pixel-ui .clear-right .impact-box {
+  background: linear-gradient(rgba(77, 216, 255, 0.08), rgba(77, 216, 255, 0.08)), var(--px-panel);
+}
+.pixel-ui .clear-right .codex-box {
+  --f: var(--px-green);
+  flex: 1 1 auto;
+  background: var(--px-panel);
 }
 .pixel-ui #clearScreen h2 {
   margin-bottom: 6px;

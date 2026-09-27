@@ -257,15 +257,15 @@
     <!-- システムログ表示エリア -->
     <div id="logArea"></div>
 
-    <!-- ゲームクリア画面 -->
+    <!-- ゲームクリア画面（見出しの下に、左：成績 / 右上：守った暮らし / 右下：点検図鑑 の3つのパネル） -->
     <div id="clearScreen" style="display: none">
-      <div class="clear-content">
+      <div class="clear-layout">
         <h2>MISSION ACCOMPLISHED</h2>
         <p class="subtitle" id="clearSubtitle">点検完了レポート（550m）</p>
 
-        <div class="clear-columns">
-          <!-- 左カラム: 成績 -->
-          <div class="clear-col">
+        <div class="clear-panels">
+          <!-- 左パネル: ランク・認定・成績・コメント・豆知識 -->
+          <div class="clear-content clear-left">
             <div id="rankBadge" class="rank-badge rank-S">S</div>
             <p id="rankTitle" class="rank-title">認定: マスター点検技師</p>
             <div class="result-stats">
@@ -300,8 +300,8 @@
             <div class="result-trivia" id="resultTrivia"></div>
           </div>
 
-          <!-- 右カラム: 土木PR（守った暮らし＋点検図鑑） -->
-          <div class="clear-col">
+          <!-- 右の列: 土木PR（上：守った暮らし / 下：点検図鑑） -->
+          <div class="clear-right">
             <div class="impact-box">
               <div class="impact-label">きみの点検が守った暮らし</div>
               <div class="impact-value">

@@ -312,21 +312,21 @@ const codexScreenEl = document.getElementById("codexScreen");
 //   縦が短い画面だと下がはみ出し、いちばん下のボタンが押せなくなる。そのときは、その画面だけさらに縮める
 // ============================================================
 const FIT_TARGETS = [
-  ["clearScreen", ".clear-content"],
+  ["clearScreen", ".clear-layout"],
   ["gameOverScreen", ".gameover-content"],
   ["codexScreen", ".codex-screen-content"],
 ];
 function fitToScreen(el) {
   if (!el) return;
+  // 高さの上限（スクロール）をはずして、中身ぜんぶの高さを測る
   el.style.zoom = "";
-  el.style.maxHeight = "";
-  const h = el.getBoundingClientRect().height;
+  el.style.maxHeight = "none";
+  const full = el.getBoundingClientRect().height;
   const avail = window.innerHeight * 0.96;
-  if (h > avail && h > 0) {
-    // 高さの上限（スクロール）をはずして、全体が見える大きさまで縮める
-    el.style.maxHeight = "none";
-    const full = el.getBoundingClientRect().height;
-    el.style.zoom = String(Math.max(0.5, avail / full));
+  if (full > avail && full > 0) {
+    el.style.zoom = String(Math.max(0.5, avail / full)); // 全体が見える大きさまで縮める
+  } else {
+    el.style.maxHeight = ""; // 収まるときは CSS の上限（とスクロール）にもどす
   }
 }
 function fitOpenScreens() {
@@ -499,7 +499,7 @@ function showClearScreen() {
   if (clearScreen) {
     clearScreen.style.display = "flex";
     clearScreen.offsetHeight;
-    fitToScreen(clearScreen.querySelector(".clear-content"));
+    fitToScreen(clearScreen.querySelector(".clear-layout"));
     clearScreen.style.opacity = 1;
   }
 }
