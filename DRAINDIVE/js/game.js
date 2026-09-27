@@ -17,6 +17,7 @@ function startGame() {
   AudioSys.resume();
   AudioSys.setDrone(true);
   Music.setup();
+  Music.stop(); // メニュー曲を消す（プレイ中の曲は GO! から）
   updatePauseBtn();
   // 3・2・1・GO! のカウントダウンから始める
   countdown = 3;
@@ -180,6 +181,9 @@ function resetGame() {
     gameOverScreen.style.opacity = 0;
     gameOverScreen.style.display = "none";
   }
+
+  // 準備画面にもどったので、メニュー曲にする
+  Music.menu();
 }
 
 // ※ 照準で狙う方式は QTE に置き換えたので、レティクルと見逃し判定はなくした。
@@ -357,6 +361,7 @@ function showGameOverScreen() {
     fitToScreen(gameOverScreen.querySelector(".gameover-content"));
     gameOverScreen.style.opacity = 1;
   }
+  Music.start("over");
 }
 
 // ------------------------------------------------------------

@@ -72,6 +72,7 @@ window.addEventListener("keydown", (e) => {
   // Mキーでサウンドのミュート切り替え
   if (normalizeKey(e) === "m") {
     AudioSys.init();
+    Music.menu();
     const muted = AudioSys.toggleMute();
     addLog(muted ? "SOUND: OFF" : "SOUND: ON");
   }
@@ -185,6 +186,7 @@ const Pad = {
     if (aPressed || r2Pressed) {
       AudioSys.init();
       AudioSys.resume();
+      Music.menu();
     }
 
     if (!isGameStarted && !isGameOver) {
@@ -297,6 +299,7 @@ window.addEventListener(
     requestFullscreenOnce();
     AudioSys.init();
     AudioSys.resume();
+    Music.menu();
     if (e.target.closest("button")) return; // ボタンはクリックとして動かす
     // QTE 中：触れた瞬間に撮影（QTE 中でなければ qtePress は何もしない）
     if (isGameStarted && !isGameOver && !isPaused) qtePress();
@@ -437,6 +440,7 @@ function leaveTitleScreen() {
   AudioSys.init();
   AudioSys.resume();
   AudioSys.tone(660, 1320, 0.12, "square", 0.09);
+  Music.menu();
 }
 
 function showTitleScreen() {
@@ -479,6 +483,7 @@ function selectDifficulty(step) {
   AudioSys.init();
   AudioSys.resume();
   AudioSys.tone(880, 880, 0.06, "square", 0.08);
+  Music.menu();
 }
 
 // HUD と結果画面に難易度を出す
