@@ -421,7 +421,8 @@ document.getElementById("codexCloseBtn").addEventListener("click", () => {
 function showClearScreen() {
   updatePauseBtn();
   resultShown = true;
-  const rate = qteTargets.length > 0 ? qteSuccess / qteTargets.length : 0;
+  // 成功率：ラスボスの弱点も点検ポイントとして数える（撃破できなかったぶんだけ下がる）
+  const rate = (qteSuccess + boss.hits) / (qteTargets.length + BOSS_HP);
   const r = RANKS.find((x) => rate >= x.min);
 
   const badge = document.getElementById("rankBadge");
@@ -431,7 +432,13 @@ function showClearScreen() {
   document.getElementById("rankComment").innerText = r.comment;
 
   const sub = document.getElementById("clearSubtitle");
-  if (sub) sub.innerText = `点検完了レポート（300m / ${diff.label}）`;
+  if (sub) {
+    const bossText =
+      boss.result === "defeated"
+        ? "ラスボス 撃破！"
+        : `ラスボス 救援で除去（弱点 ${boss.hits} / ${BOSS_HP}）`;
+    sub.innerText = `点検完了レポート（${goalDistance}m / ${diff.label}）　${bossText}`;
+  }
   document.getElementById("finalFound").innerText =
     `${qteSuccess} / ${qteTargets.length} 回（PERFECT ${qtePerfect}）`;
   document.getElementById("finalMissed").innerText = `${missedCount} 回`;

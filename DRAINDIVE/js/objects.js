@@ -353,7 +353,7 @@ function dmg(v) {
 //   避けるだけの障害物：QTE の地点の前後には置かない（スロー中・直後に来ると理不尽なので）
 // ============================================================
 const Z_PER_METER = 10; // Z座標10単位 = 1メートル（ゲーム状態の zToMeterRatio と同じ値）
-const MANHOLE_METERS = [75, 150, 225]; // マンホール（チェックポイント）の位置[m]
+const MANHOLE_METERS = [75, 150, 225, 290]; // マンホール（チェックポイント）の位置[m]。290m はラスボスの前の回復
 const qteTargets = []; // QTE の対象（手前から順）
 
 function shuffle(arr) {
@@ -388,6 +388,7 @@ function placeObjects(d) {
   qteTargets.length = 0;
 
   // 点検ポイント：30m〜280m にほぼ等間隔（少しずらす）。チェックポイントとは重ねない
+  //   300m から先（ZONE 4）はラスボス（boss.js）との追いかけっこなので置かない
   const n = d.qteCount;
   const extra = [];
   for (let i = CODEX_ORDER.length; i < n; i++) extra.push(pick(CODEX_ORDER));
@@ -408,6 +409,7 @@ function placeObjects(d) {
   }
 
   // 避けるだけの障害物：QTE の地点の前 8m・後ろ 4m と、チェックポイントの近くは避ける
+  //   ZONE 4（300m〜）にも置かない
   let placed = 0;
   let tries = 0;
   while (placed < d.dodgeCount && tries < 2000) {
@@ -454,5 +456,5 @@ const beamSprite = createBeamSprite();
 function createManhole(z) {
   manholes.push({ z: z, passed: false });
 }
-[-750, -1500, -2250].forEach(createManhole);
+MANHOLE_METERS.forEach((m) => createManhole(-m * Z_PER_METER));
 

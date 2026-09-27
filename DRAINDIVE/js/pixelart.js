@@ -202,7 +202,57 @@ function createTrunkTexture() {
   return img.data;
 }
 
-const zoneTextures = [createPipeTexture(), createBrickTexture(), createTrunkTexture()];
+// ZONE 4：処理場へつづく最後の管（シールドトンネル）
+//   シールドマシンで掘りながら、コンクリートのブロック「セグメント」を輪にして組み立てた管。
+//   テクスチャ1枚の縦に輪が2つ（1つが16ドット）。となりの輪とはセグメントの継ぎ目を半分ずらす（千鳥）
+//   継ぎ目のそばにボルトを締める凹み（ボルトボックス）、真ん中にすき間を埋める注入孔がある
+function createSegmentTexture() {
+  const img = makePixels(TEX, TEX);
+  const base = ["#6d7176", "#73777c", "#696d72", "#777b80"];
+  for (let y = 0; y < TEX; y++) {
+    for (let x = 0; x < TEX; x++) setPx(img, x, y, pick(base));
+  }
+  // うっすらした水のしみ・汚れ
+  for (let i = 0; i < 20; i++) setPx(img, randInt(0, TEX - 1), randInt(0, TEX - 1), "#5c6065");
+  const RING = TEX / 2;
+  for (let ring = 0; ring < 2; ring++) {
+    const y0 = ring * RING;
+    const jx = ring === 0 ? 0 : TEX / 2; // セグメントどうしの継ぎ目（輪ごとに半分ずらす）
+    // 輪と輪の継ぎ目：暗い溝＋明るいふち
+    for (let x = 0; x < TEX; x++) {
+      setPx(img, x, y0, "#23272b");
+      setPx(img, x, y0 + 1, "#8d9196");
+    }
+    // セグメントどうしの継ぎ目
+    for (let y = y0; y < y0 + RING; y++) {
+      setPx(img, jx, y, "#23272b");
+      setPx(img, (jx + 1) % TEX, y, "#868a8f");
+    }
+    // ボルトボックス（継ぎ目の両がわの凹み）
+    const box = (bx, by) => {
+      for (let y = 0; y < 3; y++) {
+        for (let x = 0; x < 4; x++) setPx(img, (bx + x + TEX) % TEX, by + y, "#34383c");
+      }
+      for (let x = 0; x < 4; x++) setPx(img, (bx + x + TEX) % TEX, by + 3, "#9a9ea3");
+      setPx(img, (bx + 1 + TEX) % TEX, by + 1, "#b0a070"); // ボルトの頭
+    };
+    box(jx + 3, y0 + 6);
+    box(jx - 6, y0 + 6);
+    box(jx + 10, y0 + 3);
+    box(jx - 13, y0 + 3);
+    // 注入孔（セグメントの真ん中）
+    const cx = (jx + TEX / 2) % TEX;
+    [
+      [0, 0],
+      [1, 0],
+      [0, 1],
+      [1, 1],
+    ].forEach(([dx, dy]) => setPx(img, (cx - 1 + dx + TEX) % TEX, y0 + 9 + dy, "#2a2e32"));
+  }
+  return img.data;
+}
+
+const zoneTextures = [createPipeTexture(), createBrickTexture(), createTrunkTexture(), createSegmentTexture()];
 
 // 流れる下水（16x16。時間とともに流れる）
 const WATER_TEX = 16;

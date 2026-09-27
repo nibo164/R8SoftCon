@@ -247,6 +247,8 @@ function renderOverlay(now) {
 
   // 点検 QTE（「!」マーク・ピント合わせ・黒帯）
   if (cityStart < 0) renderQte(now);
+  // ラスボス戦の名前・体力ゲージ・残り時間
+  renderBossHud(now);
 
   // 大雨警報中：画面の上下に赤と青の警告灯
   if (sirenTime > 0) {

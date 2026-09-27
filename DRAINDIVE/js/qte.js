@@ -33,6 +33,7 @@ const QTE_LABELS = {
   leak: "LEAK",
   sediment: "SEDIMENT",
   roots: "ROOTS",
+  fatberg: "WEAK POINT", // ラスボスの弱点（boss.js）
 };
 
 let qte = null; // 実行中の QTE（なければ null）
@@ -130,6 +131,18 @@ function judgeRing(result) {
   AudioSys.tone(f, f, 0.06, "square", 0.1);
 }
 
+// 撮影成功の得点とコンボ（輪ごとに PERFECT 300 / GOOD 150 を足し、コンボ倍率を掛ける）
+function addQteScore() {
+  combo++;
+  maxCombo = Math.max(maxCombo, combo);
+  const mult = Math.min(combo, COMBO_MAX_MULT);
+  const base = qte.rings.reduce((s, r) => s + (r.result === "PERFECT" ? 300 : 150), 0);
+  const gained = base * mult;
+  score += gained;
+  updateComboUI();
+  return { gained, mult };
+}
+
 function resolveQte(result) {
   const o = qte.obj;
 
@@ -174,6 +187,11 @@ function resolveQte(result) {
 
   qte.result = result;
   qte.resultT = 0;
+  // ラスボスの弱点は boss.js で処理する（点検ポイントの成功数・図鑑には数えない）
+  if (o.boss) {
+    resolveBossQte(result);
+    return;
+  }
   o.active = false;
   o.counted = true;
   const p = qteTargetPos(o);
@@ -206,17 +224,11 @@ function resolveQte(result) {
 
   // 撮影成功
   const perfect = result === "PERFECT";
-  combo++;
-  maxCombo = Math.max(maxCombo, combo);
-  const mult = Math.min(combo, COMBO_MAX_MULT);
-  const base = qte.rings.reduce((s, r) => s + (r.result === "PERFECT" ? 300 : 150), 0);
-  const gained = base * mult;
-  score += gained;
+  const { gained, mult } = addQteScore();
   inspectedCount++;
   qteSuccess++;
   if (perfect) qtePerfect++;
   recordCodex(o.type);
-  updateComboUI();
   AudioSys.playShutter(perfect);
   FX.flash("255,255,255", perfect ? 0.85 : 0.55); // カメラのフラッシュ
 
