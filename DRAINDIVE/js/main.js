@@ -12,7 +12,9 @@ function animate() {
 
   // 経過秒（フレームレートが変わっても同じ速さで進むように、移動量はすべてこれを掛ける）
   const nowTime = performance.now();
-  let dt = Math.min(0.05, (nowTime - lastFrameTime) / 1000);
+  const rawDt = (nowTime - lastFrameTime) / 1000;
+  if (rawDt > 0) fpsSmooth += (1 / rawDt - fpsSmooth) * 0.05; // ?fps の表示用（なめらかにした値）
+  let dt = Math.min(0.05, rawDt);
   lastFrameTime = nowTime;
   let f60 = dt * 60; // 60fps 換算で何フレーム分か
 
@@ -110,6 +112,11 @@ function animate() {
   if (Pad.connected) {
     if (inputX === 0) inputX = Pad.axisX;
     if (inputY === 0) inputY = Pad.axisY;
+  }
+  // タッチのどこでもスティック（input.js）も同じように合成する
+  if (Touch.id !== null) {
+    if (inputX === 0) inputX = Touch.axisX;
+    if (inputY === 0) inputY = Touch.axisY;
   }
 
   // 斜め移動が速くなりすぎないよう正規化
