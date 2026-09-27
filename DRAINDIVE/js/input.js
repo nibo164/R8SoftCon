@@ -344,6 +344,9 @@ function updateInputTexts() {
     pad ? "PRESS [A]\nTO LAUNCH" : touchMode ? "TAP A MODE\nTO LAUNCH" : "PRESS [SPACE]\nTO LAUNCH",
   );
   set("setupBack", pad ? "[B] タイトルへもどる" : touchMode ? "◀ タイトルへもどる" : "[ESC] タイトルへもどる");
+  const cont = pad ? "PRESS [A] TO CONTINUE" : touchMode ? "TAP TO CONTINUE" : "CLICK TO CONTINUE";
+  set("clearContinue", cont);
+  set("gameOverContinue", cont);
   const codexJp = document.querySelector(".codex-open-jp");
   if (codexJp) codexJp.innerText = touchMode && !pad ? "点検図鑑" : "点検図鑑 [C]";
 }
@@ -504,11 +507,27 @@ document.getElementById("resumeBtn").addEventListener("click", () => {
 document.getElementById("restartBtn").addEventListener("click", () => {
   resetGame();
 });
-document.getElementById("clearBackBtn").addEventListener("click", () => {
-  resetGame();
-});
-document.getElementById("gameOverBackBtn").addEventListener("click", () => {
-  resetGame();
+// 結果画面：画面のどこをクリック（タップ）しても準備画面へもどる
+//   出た直後の押しまちがい（ゴール演出中からのタップの続きなど）で閉じないよう、少しのあいだは受け付けない
+const RESULT_INPUT_DELAY = 800; // ミリ秒
+const clearScreenEl = document.getElementById("clearScreen");
+const gameOverScreenEl = document.getElementById("gameOverScreen");
+function resultReady() {
+  const open = clearScreenEl.style.display !== "none" || gameOverScreenEl.style.display !== "none";
+  return resultShown && open && performance.now() - resultShownAt > RESULT_INPUT_DELAY;
+}
+// 結果画面・ゲームオーバー画面のどちらも同じ
+[clearScreenEl, gameOverScreenEl].forEach((el) =>
+  el.addEventListener("click", () => {
+    if (resultReady()) resetGame();
+  }),
+);
+// キーボードでは SPACE / Enter でもどる
+window.addEventListener("keydown", (e) => {
+  if ((e.key === " " || e.key === "Enter") && resultReady()) {
+    e.preventDefault();
+    resetGame();
+  }
 });
 // プレイ中のポーズボタン
 pauseBtnEl.addEventListener("click", () => {

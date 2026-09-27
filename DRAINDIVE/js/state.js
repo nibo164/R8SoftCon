@@ -40,6 +40,7 @@ let countdown = 0; // >0 のあいだはスタート前のカウントダウン
 let goalAnim = -1; // >=0 のときゴール演出中（経過秒）
 let gameOverDelay = 0; // 墜落してからゲームオーバー画面を出すまでの残り時間
 let resultShown = false; // クリア／ゲームオーバー画面が出ているか
+let resultShownAt = 0; // 結果画面が出た時刻（出た直後の押しまちがいで閉じないように使う）
 let speedFactor = 0; // 0〜1：スピード演出の強さ
 let currentZone = 0;
 let floodWarned = false;

@@ -644,6 +644,16 @@
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
 }
+/* 画面のどこをクリック（タップ）してももどれる */
+.pixel-ui #clearScreen,
+.pixel-ui #gameOverScreen {
+  cursor: pointer;
+}
+.pixel-ui #clearScreen .clear-continue,
+.pixel-ui #gameOverScreen .clear-continue {
+  font-size: 16px;
+  margin: 18px 0 4px 0 !important;
+}
 .pixel-ui .clear-panels {
   display: flex;
   gap: 28px;
@@ -692,9 +702,6 @@
 }
 .pixel-ui #clearScreen .subtitle {
   margin-bottom: 8px;
-}
-.pixel-ui #clearScreen .menu-options {
-  margin-top: 20px;
 }
 .pixel-ui #clearScreen .rank-comment {
   max-width: 340px;
