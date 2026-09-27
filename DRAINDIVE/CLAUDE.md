@@ -7,7 +7,10 @@
 
 - 締切：2026年9月30日（ポスター・紹介動画）
 - **評価対象はポスターと紹介動画のみ**。作品ファイルの提出はなく、評価者がゲームを遊ぶことはない
-- 紹介動画は最長5分
+- 提出物は**紹介動画（3分以内）**と **A4 ポスター3枚**（大学のテンプレートあり）
+  - テンプレートの3ページの役割：① アイディア企画の説明（目的・問題点と解決・機能・特色）② 実現可能性をアピールする設計図（画面図・状態遷移・フローチャートなど）③ 実行画面のイメージ。提出時は赤字の説明文・吹き出し・枠線を消して PDF にする
+  - テンプレートの .pptx はスライドサイズが「A3」設定（縦横比 3:4）で、A4（1:1.414）と比率がちがう。印刷の指定は大学に要確認
+  - ポスター・動画づくりは保留中（ゲームの改良を先に進めている）。ポスターには QR コード（リポジトリのルートの `poster/`）を載せる
 - 評価者は学科の教員が主体。学生からの評価は、教員の評価が拮抗したときだけ参照される
 - 評価観点：独創性 / 社会へのインパクト / プレゼンテーション / 実現可能性
 - 会場での展示・子供によるプレイは想定しない
@@ -35,13 +38,13 @@
   - フォントはドット絵版だけ Press Start 2P（英字の見出し）と DotGothic16（日本語）を Google Fonts から読む
   - 図鑑のアイコンとタイトル画面のドローンは、ゲーム内のドット絵を `js/ui.js` の `codexIconURL` と `js/main.js` の `setupTitleDrone` で画像にして使う
   - **画面の大きさへの対応**：HTML の UI は 1280×720 を基準に作り、`screen.js` の `setupScreen` が計算した倍率 `--ui-scale`（= min(幅/1280, 高さ/720)）を、`pixel.css` で各画面（`#hud`・各オーバーレイ・`#infoCard`・`#logArea`）に `zoom` で掛けて拡大縮小する。UI を直すときは 1280×720 で見た目を確認すればよい
-    - `zoom` の中では `vw` / `vh` が倍率ぶん大きくなるので使わない（px で書くか、`calc(94vh / var(--ui-scale))` のように割る）。`width: 100%` や `left: 50%` はそのまま使える
+    - `zoom` の中では `vw` / `vh` が倍率ぶん大きくなるので使わない（px で書くか、画面の高さは `--app-h`（`innerHeight`）を使って `calc(var(--app-h) * 0.94 / var(--ui-scale))` のように割る）。`width: 100%` や `left: 50%` はそのまま使える
     - キャンバスは横幅 200〜480 ドットの範囲に収まらない縦横比（縦長・超横長）のとき、引き伸ばさずに上下または左右に黒い帯を入れる
 - **3D版は比較用として凍結**。ドット絵版に入れた演出・仕様変更（デルタタイム、ランク、曲がる管など）は3D版には入れない。両版の同期も不要
 - Three.js は r128 を使う。新しい版の API（import 構文、r150 以降の変更点など）は使わない
 - 画像・音声の外部ファイルは使わない（「外部アセット0」をアピールしている）
   - テクスチャ・ドット絵・文字（5x7 ドットフォント）は実行時に生成、効果音と BGM は Web Audio API で合成
-- ゲームパッド・キーボード・マウスのどれでも遊べる状態は保つ（ただし評価者は遊ばないので、これ以上の作り込みは不要）
+- ゲームパッド・キーボード・マウス・タッチ（スマホ）のどれでも遊べる状態は保つ（タッチは「スマホ対応」の節）
 
 ## 動かし方
 
@@ -74,6 +77,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 - **変更の前後で動きが変わっていないかを比べるとき**は、`Math.random` を決まった並びの乱数（mulberry32 など）に、`performance.now` を 1/60 秒ずつ進む偽の時計に差し替えてから、3つの難易度 ×「毎回ぴったり押す／何も押さない」を通しで走らせる。フレーム数・成功数・衝突数・体力・スコア・点検ポイントの配置が一致すれば同じ動き（ファイル分割のときに使った）
 - テクスチャなどはページを開いたときの乱数で作られるので、画面のピクセルそのものを分割前後で比べることはできない
 - 点検図鑑の記録は localStorage に残るので、テストのあとは `index.html?codex=reset` で消しておく
+- Claude Code のブラウザのスクリーンショットは、ひとつ前の画面が返ってくることがよくある。おかしいと思ったらもう一度撮る。点滅する文字は、描画のピクセルを `ctx.getImageData` で調べると確実
+- `location.reload()` の直後に続けて実行したスクリプトは、読み込み前の古いページで動くことがある。ページを読み直すときは navigate を使う
+- タッチ操作は、`new PointerEvent("pointerdown", { pointerType: "touch", pointerId, clientX, clientY, bubbles: true })` を画面の要素に送ると試せる（ブラウザの表示サイズを幅 768 未満にすると、指で操作する端末としても扱われる）
+- ゲーム中の時間の流れ（ゴール後の地上の場面、結果画面の出る時刻など）の一部は `performance.now()` の実時間で決まるので、フレームを手で速く進めると追いつかない。結果画面まで確かめるときは、実時間も少し待つ
 
 ## script.js の構成
 
@@ -112,8 +119,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 | 10 | `render-overlay.js` | `renderQte`（QTE の表示と点検ポイントの「!」）、`drawHpRing`（ドローンを囲む 24 区切りの体力ゲージ。HUD パネルの体力の行は `.hp-item` で隠している）、`renderOverlay`（スピード線、コンボ、警告灯、体力低下の赤いふち、ヒビ、フラッシュなど） |
 | 11 | `render-city.js` | `renderShaft`（ゴールの縦穴を真下から見上げた画面。縦にまっすぐな円筒なので専用の簡単な描画。コンクリートの輪・はしごの足掛け・出口の青空）、`renderCity`（ゴール後の地上の街）と、1フレーム分の描画 `renderFrame` |
 | 12 | `state.js` | ゲーム状態の変数（体力・スコア・進行・演出） |
-| 13 | `input.js` | キーボード、`Pad`（ゲームパッド）、ポーズメニュー、タイトル画面 ⇄ 準備画面の切り替え（`titleOpen` / `leaveTitleScreen` / `showTitleScreen`）、難易度の選択（`setDifficulty` / `selectDifficulty`）、メニューボタンのイベント |
-| 14 | `ui.js` | ログ、通知カード、HUD の更新 `updateUI`、点検レポート（`RANKS` / `showClearScreen`）、守った世帯数、図鑑（`codexIconURL` / `renderCodex`、タイトル画面から開く `openCodexScreen`） |
+| 13 | `input.js` | キーボード、`Pad`（ゲームパッド）、ポーズメニュー、タイトル画面 ⇄ 準備画面の切り替え（`titleOpen` / `leaveTitleScreen` / `showTitleScreen`）、難易度の選択（`setDifficulty` / `selectDifficulty`）、タッチ操作 `Touch`（どこでもスティック）と操作方法ごとの文言 `updateInputTexts`、結果画面・ゲームオーバー画面の「どこをクリック（タップ）してももどる」（`resultReady`。出てから 0.8 秒は受け付けない。キーボードは SPACE / Enter）、メニューボタンのイベント |
+| 14 | `ui.js` | ログ、通知カード、HUD の更新 `updateUI`、点検レポート（`RANKS` / `showClearScreen`。見出しの下に 左：成績 / 右上：守った暮らし / 右下：点検図鑑 の3つのパネル）、画面に収まらない画面を縮める `fitToScreen`、守った世帯数、図鑑（`codexIconURL` / `renderCodex`、タイトル画面から開く `openCodexScreen`） |
 | 15 | `qte.js` | 点検 QTE（`startQte` / `qtePress` / `resolveQte` / `updateQte`）とチュートリアル（`tutorialPending`）、クリックでの撮影 |
 | 16 | `boss.js` | ラスボス「ファットバーグ」（巨大な油のかたまり）：`boss`（状態）/ `resetBoss`、`updateBoss`（警報・追いつく・ボス戦・撃破／救援。`main.js` からドローンの速さを受け取る）、弱点の QTE の結果 `resolveBossQte`（`qte.js` から呼ばれる）、油のしずく、描画 `addBossSprites`（`renderWorld` から）/ `renderBossHud`（`renderOverlay` から） |
 | 17 | `game.js` | ゲームの流れ：`startGame` / `togglePause` / `resetGame`、衝突判定 `hitsBox`、カウントダウン、ゴール演出、墜落、区間と増水の進行 |
@@ -172,7 +179,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 - QTE が始まる距離（Z座標。10 = 1m）は、輪が多いほど QTE が長くなるので遠くしてある。最高速・増水中でも、QTE が終わった時点で対象がまだドローンの前にあること（HARD で最後の輪だけ見送る最長のケースで残り約7）
 
 - チュートリアル（EASY のみ）：1回目の QTE だけ時間を完全に止め、輪をゆっくり縮める（2.2秒）。失敗してもダメージなしでやり直し、3回失敗したら練習を終えて本番へ進む
-- 開発機で「操縦せず、毎回ぴったりで押す」通しプレイ：EASY 約50秒 / NORMAL 約43秒 / HARD 約39秒。HARD で何も押さないと約26秒で墜落する
+- 1回のプレイの長さは「ラスボス」の節を参照（550m のコースで約79〜92秒）。HARD で何も押さないと、ボスの前（約276m）で墜落する
 
 ## 文章・表記のルール
 
