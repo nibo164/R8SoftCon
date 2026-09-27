@@ -29,11 +29,29 @@ let frameBuf32 = null; // 上のバッファを32bit単位で書き込むため�
 let idBuf = null; // ピクセルごとに「どのデカール（壁の異常）が映っているか」
 let depthBuf = null; // ピクセルごとの奥行き
 
+// HTML の UI は 1280×720 を基準に作り、ウィンドウの大きさに合わせて全体を拡大縮小する
+// （pixel.css で各画面に zoom: var(--ui-scale) を掛ける）
+const UI_BASE_W = 1280;
+const UI_BASE_H = 720;
+
 function setupScreen() {
-  SCREEN_W = Math.round(
-    SCREEN_H * (window.innerWidth / Math.max(1, window.innerHeight)),
-  );
-  SCREEN_W = Math.max(200, Math.min(480, SCREEN_W));
+  const winW = window.innerWidth;
+  const winH = Math.max(1, window.innerHeight);
+  const uiScale = Math.min(winW / UI_BASE_W, winH / UI_BASE_H);
+  document.documentElement.style.setProperty("--ui-scale", uiScale);
+
+  const fullW = Math.round(SCREEN_H * (winW / winH));
+  SCREEN_W = Math.max(200, Math.min(480, fullW));
+  // 縦長・超横長で横幅が範囲外になったときは、引き伸ばさずに上下または左右に黒い帯を入れる
+  if (SCREEN_W === fullW) {
+    canvas.style.width = canvas.style.height = canvas.style.left = canvas.style.top = "";
+  } else {
+    const s = Math.min(winW / SCREEN_W, winH / SCREEN_H);
+    canvas.style.width = `${SCREEN_W * s}px`;
+    canvas.style.height = `${SCREEN_H * s}px`;
+    canvas.style.left = `${(winW - SCREEN_W * s) / 2}px`;
+    canvas.style.top = `${(winH - SCREEN_H * s) / 2}px`;
+  }
   canvas.width = SCREEN_W;
   canvas.height = SCREEN_H;
   ctx.imageSmoothingEnabled = false; // ドットをにじませない

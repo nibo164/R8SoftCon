@@ -12,13 +12,32 @@
   color: #ffcc33;
   letter-spacing: 0.3em;
 }
+
+/* ============================================================
+   画面の大きさへの対応：HTML の UI は 1280×720 を基準に作り、
+   screen.js が計算した倍率 --ui-scale（= min(幅/1280, 高さ/720)）で全体を拡大縮小する。
+   - UI を直すときは 1280×720 の画面で見た目を確認すればよい
+   - zoom を掛けた中では vw / vh も倍率ぶん大きくなるので使わない（px で書くか、--ui-scale で割る）
+   - width: 100% や left: 50% は zoom の中でも画面に対する割合のまま
+   ============================================================ */
+.pixel-ui #hud,
+.pixel-ui #infoCard,
+.pixel-ui #logArea,
+.pixel-ui #titleScreen,
+.pixel-ui #startScreen,
+.pixel-ui #codexScreen,
+.pixel-ui #pauseScreen,
+.pixel-ui #clearScreen,
+.pixel-ui #gameOverScreen {
+  zoom: var(--ui-scale, 1);
+}
 /* 通知カード：テンポを止めないよう、画面上部に小さく短く出す */
 #infoCard {
   top: 72px;
   bottom: auto;
   width: auto;
   min-width: 260px;
-  max-width: 60vw;
+  max-width: 768px; /* 基準の画面（1280px）の 60% */
   padding: 8px 16px;
   text-align: center;
 }
@@ -125,7 +144,7 @@
   line-height: 1.3;
 }
 .pixel-ui #titleScreen h1 {
-  font-size: clamp(40px, 7vw, 88px);
+  font-size: 88px;
   letter-spacing: 6px;
   margin: 18px 0 10px 0;
   color: var(--px-yellow);
@@ -200,7 +219,7 @@
 /* ---------------- 準備画面（左：説明と操作 / 右：難易度） ---------------- */
 /* 左右のパネル（どちらも .start-content のドット枠）を横に並べ、下に「タイトルへもどる」を置く */
 .pixel-ui .setup-layout {
-  width: min(1040px, 94vw);
+  width: 1040px;
 }
 /* 左右の幅は 1:1（flex だと左のパネルの padding のぶん左が広くなるので grid で等分する） */
 .pixel-ui .setup-panels {
@@ -604,6 +623,12 @@
 /* クリア画面は項目が多いので、1画面に収まるよう余白を詰める */
 .pixel-ui #clearScreen .clear-content {
   padding: 20px 40px 22px 40px;
+  /* style.css の 94vh は zoom の中だと倍率ぶん大きくなるので、倍率で割って画面の 94% にもどす */
+  max-height: calc(94vh / var(--ui-scale, 1));
+}
+/* style.css の「幅 980px 以下で余白を詰める」は、ドット絵版では UI ごと縮小するので使わない */
+.pixel-ui .clear-columns {
+  gap: 36px;
 }
 .pixel-ui #clearScreen h2 {
   margin-bottom: 6px;
