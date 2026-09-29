@@ -659,25 +659,50 @@
   gap: 28px;
   align-items: stretch;
 }
-/* 左パネル（style.css の「高さの上限＋スクロール」は外がわの .clear-layout に移したので、ここでは使わない） */
-.pixel-ui #clearScreen .clear-left {
-  padding: 16px 32px 18px 32px;
+/* 点検レポートは2ページ（ui.js の showClearPage で切り替える） */
+.pixel-ui .clear-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+/* 1ページ目：1つのパネルの中で、左にランク、右に成績（style.css の「高さの上限＋スクロール」は外がわの .clear-layout に移したので、ここでは使わない） */
+.pixel-ui #clearScreen .clear-summary {
+  flex-direction: row;
+  align-items: center;
+  gap: 44px;
+  padding: 28px 44px;
   max-height: none;
   overflow: visible;
 }
-/* 左パネルがいちばん縦に長いので、すき間を少し詰める（PC の 1280×720 でなるべく縮めずに収まるように） */
-.pixel-ui #clearScreen .clear-left .rank-badge {
-  margin: 2px auto 6px auto;
+.pixel-ui .clear-rank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 300px;
 }
-.pixel-ui #clearScreen .clear-left .result-stats {
-  margin: 10px 0;
-  gap: 6px;
-  padding: 12px 22px;
+/* 1ページ目は場所に余裕があるので、ランクを大きく見せる */
+.pixel-ui #clearScreen .clear-rank .rank-badge {
+  width: 140px;
+  height: 140px;
+  line-height: 150px;
+  font-size: 72px;
+  margin: 0 auto 8px auto;
 }
-.pixel-ui #clearScreen .clear-left .result-trivia {
-  margin-top: 10px;
+.pixel-ui #clearScreen .clear-rank .rank-comment {
+  max-width: 300px;
+  margin-top: 8px;
 }
-/* 右の列：上下2つのパネル。図鑑のパネルが残りの高さを使い、左パネルと下をそろえる */
+.pixel-ui #clearScreen .clear-summary .result-stats {
+  margin: 0;
+  gap: 10px;
+  padding: 18px 26px;
+}
+/* 2ページ目：左の列（守った暮らし・豆知識）と右の列（点検図鑑） */
+.pixel-ui #clearScreen .clear-right .result-trivia {
+  width: 100%;
+  margin-top: 0;
+}
+/* 2ページ目の列：図鑑のパネルが残りの高さを使い、左の列と下をそろえる */
 .pixel-ui .clear-right {
   display: flex;
   flex-direction: column;

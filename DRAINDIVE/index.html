@@ -263,11 +263,14 @@
         <h2>MISSION ACCOMPLISHED</h2>
         <p class="subtitle" id="clearSubtitle">点検完了レポート（550m）</p>
 
-        <div class="clear-panels">
-          <!-- 左パネル: ランク・認定・成績・コメント・豆知識 -->
-          <div class="clear-content clear-left">
-            <div id="rankBadge" class="rank-badge rank-S">S</div>
-            <p id="rankTitle" class="rank-title">認定: マスター点検技師</p>
+        <!-- 1ページ目：左にランク（認定・コメント）、右に成績。タップで2ページ目へ（input.js の advanceResult） -->
+        <div class="clear-page" id="clearPage1">
+          <div class="clear-content clear-summary">
+            <div class="clear-rank">
+              <div id="rankBadge" class="rank-badge rank-S">S</div>
+              <p id="rankTitle" class="rank-title">認定: マスター点検技師</p>
+              <p id="rankComment" class="rank-comment"></p>
+            </div>
             <div class="result-stats">
               <div class="stat-item">
                 <span class="stat-label">点検成功:</span>
@@ -296,39 +299,45 @@
                 <span id="finalHp" class="stat-value green-text">100%</span>
               </div>
             </div>
-            <p id="rankComment" class="rank-comment"></p>
-            <div class="result-trivia" id="resultTrivia"></div>
           </div>
-
-          <!-- 右の列: 土木PR（上：守った暮らし / 下：点検図鑑） -->
-          <div class="clear-right">
-            <div class="impact-box">
-              <div class="impact-label">きみの点検が守った暮らし</div>
-              <div class="impact-value">
-                <span id="impactHouseholds">0</span
-                ><span class="impact-unit">世帯</span>
-              </div>
-              <div class="impact-note" id="impactNote"></div>
-              <div class="impact-disclaimer">
-                ※世帯数はこのゲームの中の目安です
-              </div>
-            </div>
-
-            <div class="codex-box">
-              <div class="codex-header">
-                <span>点検図鑑</span>
-                <span class="codex-progress" id="codexProgress"
-                  >0 / 6 種類</span
-                >
-              </div>
-              <div class="codex-grid" id="codexGrid"></div>
-              <div class="codex-hint" id="codexHint"></div>
-            </div>
-          </div>
+          <!-- 画面のどこをクリック（タップ）しても2ページ目へ（文言は操作方法に合わせて切り替える） -->
+          <p class="blink-text clear-continue" id="clearNext">CLICK TO NEXT</p>
         </div>
 
-        <!-- 画面のどこをクリック（タップ）しても準備画面へもどる（input.js。文言は操作方法に合わせて切り替える） -->
-        <p class="blink-text clear-continue" id="clearContinue">CLICK TO CONTINUE</p>
+        <!-- 2ページ目：土木PR（左：守った暮らし・豆知識 / 右：点検図鑑） -->
+        <div class="clear-page" id="clearPage2" style="display: none">
+          <div class="clear-panels">
+            <div class="clear-right">
+              <div class="impact-box">
+                <div class="impact-label">きみの点検が守った暮らし</div>
+                <div class="impact-value">
+                  <span id="impactHouseholds">0</span
+                  ><span class="impact-unit">世帯</span>
+                </div>
+                <div class="impact-note" id="impactNote"></div>
+                <div class="impact-disclaimer">
+                  ※世帯数はこのゲームの中の目安です
+                </div>
+              </div>
+              <div class="result-trivia" id="resultTrivia"></div>
+            </div>
+
+            <div class="clear-right">
+              <div class="codex-box">
+                <div class="codex-header">
+                  <span>点検図鑑</span>
+                  <span class="codex-progress" id="codexProgress"
+                    >0 / 6 種類</span
+                  >
+                </div>
+                <div class="codex-grid" id="codexGrid"></div>
+                <div class="codex-hint" id="codexHint"></div>
+              </div>
+            </div>
+          </div>
+          <!-- 画面のどこをクリック（タップ）しても準備画面へもどる（input.js。文言は操作方法に合わせて切り替える） -->
+          <p class="blink-text clear-continue" id="clearContinue">CLICK TO CONTINUE</p>
+        </div>
       </div>
     </div>
     <!-- ゲームオーバー画面 -->
