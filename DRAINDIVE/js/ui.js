@@ -450,10 +450,22 @@ document.getElementById("codexCloseBtn").addEventListener("click", () => {
   closeCodexScreen();
 });
 
+// 点検レポートは2ページ：1ページ目はランクと成績、2ページ目は守った暮らし・豆知識・点検図鑑
+//   1ページ目をタップすると2ページ目へ、2ページ目をタップすると準備画面へ（input.js の advanceResult）
+let clearPage = 1;
+function showClearPage(n) {
+  clearPage = n;
+  document.getElementById("clearPage1").style.display = n === 1 ? "" : "none";
+  document.getElementById("clearPage2").style.display = n === 2 ? "" : "none";
+  const clearScreen = document.getElementById("clearScreen");
+  if (clearScreen.style.display !== "none") fitToScreen(clearScreen.querySelector(".clear-layout"));
+}
+
 function showClearScreen() {
   updatePauseBtn();
   resultShown = true;
   resultShownAt = performance.now();
+  showClearPage(1);
   // 成功率：ラスボスの弱点も点検ポイントとして数える（撃破できなかったぶんだけ下がる）
   const rate = (qteSuccess + boss.hits) / (qteTargets.length + BOSS_HP);
   const r = RANKS.find((x) => rate >= x.min);

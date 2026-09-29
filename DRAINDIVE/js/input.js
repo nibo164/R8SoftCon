@@ -208,9 +208,9 @@ const Pad = {
         else if (aPressed) startGame();
       }
     } else if (isGameOver) {
-      // クリア／ゲームオーバー画面：Aボタンでタイトルへ戻る
-      // （結果画面が出てから。演出の途中で押してもタイトルへは戻らない）
-      if (aPressed && resultShown) resetGame();
+      // クリア／ゲームオーバー画面：Aボタンで進む（点検レポートは2ページ目へ、そのあと準備画面へ）
+      // （結果画面が出てから。演出の途中で押しても進まない）
+      if (aPressed && resultShown) advanceResult();
     } else if (isPaused) {
       // 一時停止中：上下で選んで A で決定。START / B はすぐ再開
       if (menuMoved) setPauseSel(pauseSel + menuDir);
@@ -350,6 +350,7 @@ function updateInputTexts() {
   const cont = pad ? "PRESS [A] TO CONTINUE" : touchMode ? "TAP TO CONTINUE" : "CLICK TO CONTINUE";
   set("clearContinue", cont);
   set("gameOverContinue", cont);
+  set("clearNext", pad ? "PRESS [A] TO NEXT" : touchMode ? "TAP TO NEXT" : "CLICK TO NEXT");
   const codexJp = document.querySelector(".codex-open-jp");
   if (codexJp) codexJp.innerText = touchMode && !pad ? "点検図鑑" : "点検図鑑 [C]";
 }
@@ -521,17 +522,31 @@ function resultReady() {
   const open = clearScreenEl.style.display !== "none" || gameOverScreenEl.style.display !== "none";
   return resultShown && open && performance.now() - resultShownAt > RESULT_INPUT_DELAY;
 }
+// 結果画面を1つ進める：点検レポートの1ページ目なら2ページ目へ、それ以外は準備画面へもどる
+//   ページをめくった直後の押しまちがい（連打）で、すぐにもどらないよう少し待つ
+const RESULT_PAGE_DELAY = 400; // ミリ秒
+let resultPageAt = 0;
+function advanceResult() {
+  if (clearScreenEl.style.display !== "none" && clearPage === 1) {
+    showClearPage(2);
+    resultPageAt = performance.now();
+    AudioSys.tone(660, 990, 0.08, "square", 0.07);
+    return;
+  }
+  if (performance.now() - resultPageAt < RESULT_PAGE_DELAY) return;
+  resetGame();
+}
 // 結果画面・ゲームオーバー画面のどちらも同じ
 [clearScreenEl, gameOverScreenEl].forEach((el) =>
   el.addEventListener("click", () => {
-    if (resultReady()) resetGame();
+    if (resultReady()) advanceResult();
   }),
 );
-// キーボードでは SPACE / Enter でもどる
+// キーボードでは SPACE / Enter で進む
 window.addEventListener("keydown", (e) => {
   if ((e.key === " " || e.key === "Enter") && resultReady()) {
     e.preventDefault();
-    resetGame();
+    advanceResult();
   }
 });
 // プレイ中のポーズボタン

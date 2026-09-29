@@ -121,8 +121,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 | 10 | `render-overlay.js` | `renderQte`（QTE の表示と点検ポイントの「!」）、`drawHpRing`（ドローンを囲む 24 区切りの体力ゲージ。HUD パネルの体力の行は `.hp-item` で隠している）、`renderOverlay`（スピード線、コンボ、警告灯、体力低下の赤いふち、ヒビ、フラッシュなど） |
 | 11 | `render-city.js` | `renderShaft`（ゴールの縦穴を真下から見上げた画面。縦にまっすぐな円筒なので専用の簡単な描画。コンクリートの輪・はしごの足掛け・出口の青空）、`renderCity`（ゴール後の地上の街）と、1フレーム分の描画 `renderFrame` |
 | 12 | `state.js` | ゲーム状態の変数（体力・スコア・進行・演出） |
-| 13 | `input.js` | キーボード、`Pad`（ゲームパッド）、ポーズメニュー、タイトル画面 ⇄ 準備画面の切り替え（`titleOpen` / `leaveTitleScreen` / `showTitleScreen`）、難易度の選択（`setDifficulty` / `selectDifficulty`）、タッチ操作 `Touch`（どこでもスティック）と操作方法ごとの文言 `updateInputTexts`、結果画面・ゲームオーバー画面の「どこをクリック（タップ）してももどる」（`resultReady`。出てから 0.8 秒は受け付けない。キーボードは SPACE / Enter）、メニューボタンのイベント |
-| 14 | `ui.js` | ログ、通知カード、HUD の更新 `updateUI`、点検レポート（`RANKS` / `showClearScreen`。見出しの下に 左：成績 / 右上：守った暮らし / 右下：点検図鑑 の3つのパネル）、画面に収まらない画面を縮める `fitToScreen`、守った世帯数、図鑑（`codexIconURL` / `renderCodex`、タイトル画面から開く `openCodexScreen`） |
+| 13 | `input.js` | キーボード、`Pad`（ゲームパッド）、ポーズメニュー、タイトル画面 ⇄ 準備画面の切り替え（`titleOpen` / `leaveTitleScreen` / `showTitleScreen`）、難易度の選択（`setDifficulty` / `selectDifficulty`）、タッチ操作 `Touch`（どこでもスティック）と操作方法ごとの文言 `updateInputTexts`、結果画面・ゲームオーバー画面の「どこをクリック（タップ）しても進む」（`resultReady`。出てから 0.8 秒は受け付けない。キーボードは SPACE / Enter、パッドは A。`advanceResult`：点検レポートの1ページ目なら2ページ目へ、それ以外は準備画面へ。ページをめくってから 0.4 秒は もどらない）、メニューボタンのイベント |
+| 14 | `ui.js` | ログ、通知カード、HUD の更新 `updateUI`、点検レポート（`RANKS` / `showClearScreen`。2ページで、`showClearPage` で切り替える。1ページ目：左にランク・認定・コメント、右に成績。2ページ目：左に守った暮らし・土木マメ知識、右に点検図鑑）、画面に収まらない画面を縮める `fitToScreen`、守った世帯数、図鑑（`codexIconURL` / `renderCodex`、タイトル画面から開く `openCodexScreen`） |
 | 15 | `qte.js` | 点検 QTE（`startQte` / `qtePress` / `resolveQte` / `updateQte`）とチュートリアル（`tutorialPending`）、クリックでの撮影 |
 | 16 | `boss.js` | ラスボス「ファットバーグ」（巨大な油のかたまり）：`boss`（状態）/ `resetBoss`、`updateBoss`（警報・追いつく・ボス戦・撃破／救援。`main.js` からドローンの速さを受け取る）、弱点の QTE の結果 `resolveBossQte`（`qte.js` から呼ばれる）、油のしずく、描画 `addBossSprites`（`renderWorld` から）/ `renderBossHud`（`renderOverlay` から） |
 | 17 | `game.js` | ゲームの流れ：`startGame` / `togglePause` / `resetGame`、衝突判定 `hitsBox`、カウントダウン、ゴール演出、墜落、区間と増水の進行 |
