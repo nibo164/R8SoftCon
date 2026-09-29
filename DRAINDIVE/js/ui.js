@@ -321,8 +321,18 @@ function fitToScreen(el) {
   // 高さの上限（スクロール）をはずして、中身ぜんぶの高さを測る
   el.style.zoom = "";
   el.style.maxHeight = "none";
+  // 見えている画面の高さを、el と同じものさしで測るための目印を、同じ画面（zoom している親）の中に置く。
+  //   zoom の中の getBoundingClientRect は、Chrome は縮めたあとの大きさ、iPhone（WebKit）は縮める前の大きさを返すことがあり、
+  //   window.innerHeight とそのまま比べると iPhone では縮めすぎる（パネルが画面の 1/6 ほどになった）。目印との割合ならどちらでも正しい
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:absolute;top:0;left:0;width:1px;visibility:hidden;pointer-events:none;" +
+    "height:calc(var(--app-h, 100vh) / var(--ui-scale, 1))";
+  el.parentElement.appendChild(probe);
+  const screenH = probe.getBoundingClientRect().height;
+  probe.remove();
   const full = el.getBoundingClientRect().height;
-  const avail = window.innerHeight * 0.96;
+  const avail = screenH * 0.96;
   if (full > avail && full > 0) {
     el.style.zoom = String(Math.max(0.5, avail / full)); // 全体が見える大きさまで縮める
   } else {
@@ -404,6 +414,13 @@ function buildCodexScreen() {
       if (codexSel === i) return;
       codexSel = i;
       updateCodexSelection();
+    });
+    // タップ（クリック）でも選べる。スマホには mouseenter がないので、これがないと腐食から変えられない
+    cell.addEventListener("click", () => {
+      if (codexSel === i) return;
+      codexSel = i;
+      updateCodexSelection();
+      AudioSys.tone(880, 880, 0.05, "square", 0.06);
     });
     grid.appendChild(cell);
   });

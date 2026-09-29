@@ -1260,7 +1260,7 @@ html {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  cursor: default;
+  cursor: pointer; /* タップ・クリックで選ぶ（iPhone はクリックできる見た目の要素にだけ click を送ることがある） */
 }
 .pixel-ui .codex-screen-grid .codex-icon img {
   width: 56px;
