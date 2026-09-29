@@ -36,35 +36,49 @@ const AudioSys = {
     this.master.connect(this.muffle);
     this.muffle.connect(this.ctx.destination);
 
-    // ドローンのプロペラ音（近い周波数の2つの波でうなりを作る）
+    // ドローンのプロペラ音（近い周波数の2つの波でうなりを作る）。波は飛んでいる間だけ作る（setDrone）
     this.droneGain = this.ctx.createGain();
     this.droneGain.gain.value = 0;
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.value = 240;
-    [64, 66.5].forEach((f) => {
-      const o = this.ctx.createOscillator();
-      o.type = "sawtooth";
-      o.frequency.value = f;
-      o.connect(filter);
-      o.start();
-    });
-    filter.connect(this.droneGain);
+    this.droneFilter = this.ctx.createBiquadFilter();
+    this.droneFilter.type = "lowpass";
+    this.droneFilter.frequency.value = 240;
+    this.droneFilter.connect(this.droneGain);
     this.droneGain.connect(this.master);
+    this.droneOscs = null;
     if (this.initB) this.initB();
   },
 
   resume() {
-    if (this.ctx && this.ctx.state === "suspended") this.ctx.resume();
+    if (this.ctx && this.ctx.state === "suspended" && !document.hidden) this.ctx.resume();
   },
 
-  // プロペラ音のON/OFF（飛行中のみ鳴らす）
+  // プロペラ音の波を作って鳴らしはじめる（効果音の B案は高い「ウィーン」も足す）
+  makeDrone() {
+    const oscs = [64, 66.5].map((f) => {
+      const o = this.ctx.createOscillator();
+      o.type = "sawtooth";
+      o.frequency.value = f;
+      o.connect(this.droneFilter);
+      o.start();
+      return o;
+    });
+    if (this.droneExtraB) oscs.push(...this.droneExtraB());
+    return oscs;
+  },
+
+  // プロペラ音のON/OFF（飛行中のみ鳴らす）。止めるときは波ごと止めて、計算を減らす
   setDrone(on) {
     if (!this.droneGain) return;
     const t = this.ctx.currentTime;
     this.droneGain.gain.cancelScheduledValues(t);
     this.droneGain.gain.setValueAtTime(this.droneGain.gain.value, t);
     this.droneGain.gain.linearRampToValueAtTime(on ? 0.08 : 0, t + 0.3);
+    if (on && !this.droneOscs) {
+      this.droneOscs = this.makeDrone();
+    } else if (!on && this.droneOscs) {
+      this.droneOscs.forEach((o) => o.stop(t + 0.35));
+      this.droneOscs = null;
+    }
   },
 
   // 単音（周波数スイープ付き）
@@ -141,6 +155,14 @@ const AudioSys = {
   },
 };
 
+
+// ほかのアプリに切り替えたときや画面を消したときは、音の処理ごと止める（バッテリーの節約）
+//   止めている間は時計も止まるので、BGM の予約もずれずに、もどったところから続く
+document.addEventListener("visibilitychange", () => {
+  if (!AudioSys.ctx) return;
+  if (document.hidden) AudioSys.ctx.suspend();
+  else AudioSys.ctx.resume();
+});
 
 // 演出用の効果音（AudioSys に追加）
 Object.assign(AudioSys, {
@@ -1068,15 +1090,21 @@ const SFX_B = {
     bp.Q.value = 3;
     const wg = ctx.createGain();
     wg.gain.value = 0.35;
-    [191, 194.5].forEach((f) => {
-      const o = ctx.createOscillator();
-      o.type = "square";
-      o.frequency.value = f;
-      o.connect(bp);
-      o.start();
-    });
     bp.connect(wg);
     wg.connect(this.droneGain);
+    this.whineIn = bp;
+  },
+
+  // プロペラ音に重ねる「ウィーン」の波（makeDrone から呼ばれ、飛んでいる間だけ動く）
+  droneExtraB() {
+    return [191, 194.5].map((f) => {
+      const o = this.ctx.createOscillator();
+      o.type = "square";
+      o.frequency.value = f;
+      o.connect(this.whineIn);
+      o.start();
+      return o;
+    });
   },
 
   // 音を効果音の経路へ出す（残響の量・左右）
