@@ -7,19 +7,37 @@
 // メインループ
 let lastFrameTime = performance.now();
 
+// フレームレートの上限（バッテリーの節約。管の描画は1ドットずつ計算するので重い）
+//   スマホ（タッチ操作）は 30fps、遊んでいない画面（タイトル・準備・図鑑・ポーズ・結果）は 15fps
+//   テストでフレームを手で進めるときは frameCap = false にする
+const FPS_TOUCH = 30;
+const FPS_IDLE = 15;
+let frameCap = true;
+function frameInterval() {
+  const idle =
+    titleOpen || codexOpen || isPaused || resultShown || (!isGameStarted && !isGameOver);
+  const fps = idle ? FPS_IDLE : touchMode ? FPS_TOUCH : 0;
+  return fps ? 1000 / fps : 0;
+}
+
 function animate() {
   requestAnimationFrame(animate);
 
-  // 経過秒（フレームレートが変わっても同じ速さで進むように、移動量はすべてこれを掛ける）
+  // ゲームパッドはタイトル・ポーズ・リザルト画面でも操作できるよう常にポーリングする
+  //   （フレームを間引いているときも、ボタンの押しのがしがないように毎回読む）
+  Pad.poll();
+
+  // 上限より早く呼ばれたら、このフレームは描かない（画面の更新のずれを見込んで 4ms 早めに通す）
   const nowTime = performance.now();
+  const interval = frameCap ? frameInterval() : 0;
+  if (interval && nowTime - lastFrameTime < interval - 4) return;
+
+  // 経過秒（フレームレートが変わっても同じ速さで進むように、移動量はすべてこれを掛ける）
   const rawDt = (nowTime - lastFrameTime) / 1000;
   if (rawDt > 0) fpsSmooth += (1 / rawDt - fpsSmooth) * 0.05; // ?fps の表示用（なめらかにした値）
   let dt = Math.min(0.05, rawDt);
   lastFrameTime = nowTime;
   let f60 = dt * 60; // 60fps 換算で何フレーム分か
-
-  // ゲームパッドはタイトル・ポーズ・リザルト画面でも操作できるよう常にポーリングする
-  Pad.poll();
 
   // 一時停止状態（演出も止める）
   if (isPaused) {

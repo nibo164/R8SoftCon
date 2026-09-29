@@ -110,7 +110,10 @@ function qteRingDeadline(q, i) {
 // ボタンが押されたとき（QTE 中でなければ何もしない）
 function qtePress() {
   if (!qte || qte.result || isPaused || isGameOver) return false;
-  const err = Math.abs(qte.t - qte.rings[qte.idx].perfectAt);
+  // qte.t はフレームごとにしか進まないので、前のフレームから押した瞬間までの時間を足して判定する
+  //   （スマホは 30fps に間引いているので、足さないと最大 1/30 秒ずれる）
+  const since = Math.min(0.05, Math.max(0, (performance.now() - lastFrameTime) / 1000));
+  const err = Math.abs(qte.t + since - qte.rings[qte.idx].perfectAt);
   judgeRing(err <= diff.qtePerfect ? "PERFECT" : err <= diff.qteGood ? "GOOD" : "MISS");
   return true;
 }

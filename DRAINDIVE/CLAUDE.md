@@ -71,8 +71,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
   ```js
   window.realAnimate = animate;
   window.animate = () => {}; // 本来のループを止める（トップレベルの関数なので差し替えられる）
+  frameCap = false; // フレームレートの上限を外す（外さないと、メニュー画面やタッチ操作では 1/60 秒ずつ進めたフレームが間引かれる）
   window.step = (n) => { for (let i = 0; i < n; i++) { lastFrameTime = performance.now() - 1000 / 60; realAnimate(); } };
   ```
+- フレームレートの上限（`main.js` の `frameInterval`）を確かめるときは、`requestAnimationFrame` を空の関数にして、`performance.now` を 1000/60 ミリ秒ずつ進む偽の時計に差し替え、`animate()` を呼んだ回数のうち `renderFrame` が何回呼ばれたかを数える
 - **長い通しプレイを速く回すとき**は、`renderFrame` を「描画用カメラ位置だけ更新する関数」に差し替えて描画を省く（`renderCam` と `updateBend` だけ更新しないと、`project` を使う処理がずれる）
 - **変更の前後で動きが変わっていないかを比べるとき**は、`Math.random` を決まった並びの乱数（mulberry32 など）に、`performance.now` を 1/60 秒ずつ進む偽の時計に差し替えてから、3つの難易度 ×「毎回ぴったり押す／何も押さない」を通しで走らせる。フレーム数・成功数・衝突数・体力・スコア・点検ポイントの配置が一致すれば同じ動き（ファイル分割のときに使った）
 - テクスチャなどはページを開いたときの乱数で作られるので、画面のピクセルそのものを分割前後で比べることはできない
@@ -124,7 +126,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 | 15 | `qte.js` | 点検 QTE（`startQte` / `qtePress` / `resolveQte` / `updateQte`）とチュートリアル（`tutorialPending`）、クリックでの撮影 |
 | 16 | `boss.js` | ラスボス「ファットバーグ」（巨大な油のかたまり）：`boss`（状態）/ `resetBoss`、`updateBoss`（警報・追いつく・ボス戦・撃破／救援。`main.js` からドローンの速さを受け取る）、弱点の QTE の結果 `resolveBossQte`（`qte.js` から呼ばれる）、油のしずく、描画 `addBossSprites`（`renderWorld` から）/ `renderBossHud`（`renderOverlay` から） |
 | 17 | `game.js` | ゲームの流れ：`startGame` / `togglePause` / `resetGame`、衝突判定 `hitsBox`、カウントダウン、ゴール演出、墜落、区間と増水の進行 |
-| 18 | `main.js` | メインループ `animate`（経過秒 dt で動く。QTE の判定は実時間、移動・ダメージ・破片は `timeScale` を掛けたゲーム内の時間で進む）と起動処理 |
+| 18 | `main.js` | メインループ `animate`（経過秒 dt で動く。QTE の判定は実時間、移動・ダメージ・破片は `timeScale` を掛けたゲーム内の時間で進む）と起動処理。**バッテリーの節約**のため、フレームレートに上限がある（`frameInterval`：タッチ操作 `touchMode` は 30fps、遊んでいない画面（タイトル・準備・図鑑・ポーズ・結果）はどの端末も 15fps。上限より早く呼ばれたフレームは描かない。ゲームパッドは毎回読む）。QTE の判定は、前のフレームから押した瞬間までの時間を足すので、フレームを間引いてもずれない（`qte.js` の `qtePress`） |
 
 ドット絵版だけの CSS は `pixel.css`（`style.css` のあとに読み込んで上書きする）。
 
@@ -197,14 +199,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 
 残っている課題：
 
-1. **描画の重さ**：演出を足した結果、開発機で管の描画が1フレーム 7〜8.5ms（以前は約3ms）。60fps には収まるが、録画ソフトと同時に動かすと落ちる可能性がある
+1. **描画の重さ**：演出を足した結果、開発機で管の描画が1フレーム 7〜8.5ms（以前は約3ms）。スマホの横向きと同じ 390×180 ドットでは、開発機でタイトル画面 約12ms・プレイ中 約8ms。60fps には収まるが、録画ソフトと同時に動かすと落ちる可能性がある
+   - スマホで電池の減りが早い（5分で 5〜10%）との報告を受けて、フレームレートに上限をつけた（`main.js` の `frameInterval`）。開発機での1秒あたりの計算時間は、タイトル画面 713ms → 178ms、プレイ中（30fps）490ms → 245ms。あわせて、プロペラ音の波は飛んでいる間だけ作り、ページが隠れたら音の処理（AudioContext）を止める。実機の電池の減りは未計測
 2. **難易度の調整**：`DIFFICULTIES` の各数値、遠心力の強さ（`animate` 内の係数 0.08）、ランクのしきい値は、実際に遊んで調整が必要
 3. **CDN 依存**（3D版のみ）：Three.js と Google Fonts を CDN から読んでいる。撮影時にネットにつながっていれば問題ない
 
 ## 未決定事項・保留中
 
 - 動画・ポスターのための追加実装（撮影モード、技術の見える化モード、高解像度スクリーンショットなど）を行うか、どこまで行うか
-- **スマホの重さ**：内部の解像度はまだ下げていない（縦180ドットのまま）。実機で `?fps` をつけて測り、重ければスマホのときだけ下げる（縦120ドットなど。画面上の文字や QTE の輪の位置は SCREEN_H を基準にしているので、下げるときは見た目の確認が必要）
+- **スマホの重さ**：フレームレートの上限（30fps）はつけたが、内部の解像度はまだ下げていない（縦180ドットのまま）。電池の減りがまだ早ければ、次はこれ。実機で `?fps` をつけて測り、重ければスマホのときだけ下げる（縦120ドットなど。画面上の文字や QTE の輪の位置は SCREEN_H を基準にしているので、下げるときは見た目の確認が必要）
 
 ## スマホ対応（QR コードから遊ぶ）
 
