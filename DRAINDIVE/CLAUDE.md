@@ -217,7 +217,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 - 横向き専用：タッチ操作で縦向きのときは「スマホを横向きにしてね」（`#rotateNotice`）を出し、プレイ中なら一時停止する
 - Android などでは最初のタップで全画面＋横向き固定にする。iPhone の Safari は全画面にできないので何もしない（ホーム画面に追加して開けば全画面で動く）
 - UI の大きさ：タッチ操作のときは基準を 1120×630 にして少し大きく出す（844×390 の横向きスマホで 0.62 倍）
-  - 結果画面・ゲームオーバー画面・図鑑は、開いたとき（と画面の大きさが変わったとき）に収まらなければ、その画面だけさらに縮める（`ui.js` の `fitToScreen` / `fitOpenScreens`）。iPhone の Safari で結果画面が縦にはみ出し、下のボタンが押せなかったため
+  - 結果画面・ゲームオーバー画面・図鑑は、開いたとき（と画面の大きさが変わったとき）に収まらなければ、その画面だけさらに縮める（`ui.js` の `fitToScreen` / `fitOpenScreens`）。iPhone の Safari で結果画面が縦にはみ出し、下のボタンが押せなかったため。日本語のフォント（Google Fonts）を読み込み終わったときも測り直す
+  - iPhone（Safari・Chrome とも WebKit）は横向きにすると文字を勝手に大きくするので、`pixel.css` の `html` で `-webkit-text-size-adjust: 100%` にして止めている。Chrome（PC）ではこの拡大が起きないので、開発機のブラウザでは iPhone の文字のはみ出しを再現できない（確かめるときは、CSS で文字を大きくして代わりに試す）
+  - 大きさを決めてあるマス（点検図鑑の6種類など）は、文字が大きくなってもはみ出さないよう、高さを `minmax(…, auto)` で伸ばし、名前は `white-space: nowrap` にしている。点検図鑑のキーボード用の操作のヒントは、タッチ操作では出さない
   - CSS で画面の高さを使うときは `vh` ではなく `--app-h`（`screen.js` が入れる `innerHeight`）を使う。iPhone の Safari の `100vh` はアドレスバーのぶんも含む
   - 画面全体は `touch-action: none` なので、中身をスクロールさせたい所には `touch-action: pan-y` をつける（結果画面につけてある）
 - ブラウザのスクロール・ピンチ拡大・ダブルタップ拡大・長押しメニューは止めてある（`pixel.css` の touch-action など）。キャンバスの大きさは `innerWidth` / `innerHeight` で決める（スマホの 100vh はアドレスバーのぶんずれるため）

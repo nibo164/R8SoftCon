@@ -335,6 +335,11 @@ function fitOpenScreens() {
     if (screen && screen.style.display !== "none") fitToScreen(screen.querySelector(sel));
   });
 }
+// 日本語のフォント（Google Fonts）はあとから読み込まれ、読み込むと文字の大きさが変わるので、測り直す
+if (document.fonts) {
+  document.fonts.ready.then(fitOpenScreens);
+  if (document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", fitOpenScreens);
+}
 
 function openCodexScreen() {
   if (codexOpen || isGameStarted || isGameOver || !codexScreenEl) return;
