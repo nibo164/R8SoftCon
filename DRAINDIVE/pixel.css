@@ -3,6 +3,13 @@
    style.css（3D版と共通）のあとに読み込み、ドット絵版の見た目に上書きする
    ============================================================ */
 
+/* iPhone（Safari・Chrome とも WebKit）は横向きにすると文字を勝手に大きくするので止める。
+   大きくなると、大きさを決めてあるマス（点検図鑑など）から文字や画像がはみ出し、画面にも収まらなくなる */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 /* ドット絵版：低解像度キャンバスをにじませずに拡大する */
 #gameCanvas {
   image-rendering: pixelated;
@@ -1238,10 +1245,13 @@
   align-items: stretch;
   text-align: left;
 }
+/* 6種類のマス：右の説明パネルと同じ高さまで伸びるので、マスはその縦の真ん中に並べる。
+   マスの高さは文字に合わせて伸ばす（文字が大きくなっても、枠からはみ出さないように） */
 .pixel-ui .codex-screen-grid {
   display: grid;
   grid-template-columns: repeat(3, 104px);
-  grid-auto-rows: 104px;
+  grid-auto-rows: minmax(104px, auto);
+  align-content: center;
   gap: 14px;
   padding: 4px;
 }
@@ -1259,6 +1269,7 @@
 .pixel-ui .codex-screen-grid .codex-name {
   font-size: 14px;
   margin-top: 4px;
+  white-space: nowrap; /* 名前は折り返さない（いちばん長い「ひび割れ」「鉄筋露出」も1行に収まる） */
 }
 .pixel-ui .codex-screen-grid .codex-cell.selected {
   --f: var(--px-yellow);
@@ -1502,5 +1513,9 @@ body {
 }
 /* タッチ操作では ←→ で選ばないので、難易度の「← → でえらぶ」は出さない */
 .pixel-ui.touch-mode .diff-hint {
+  display: none;
+}
+/* 点検図鑑のキーボード・ゲームパッド用の操作のヒントも、タッチ操作では出さない（横向きのスマホは縦がせまいので詰める） */
+.pixel-ui.touch-mode #codexScreen .help-text {
   display: none;
 }
