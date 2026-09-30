@@ -315,6 +315,7 @@ const FIT_TARGETS = [
   ["clearScreen", ".clear-layout"],
   ["gameOverScreen", ".gameover-content"],
   ["codexScreen", ".codex-screen-content"],
+  ["howtoScreen", ".howto-screen-content"],
 ];
 function fitToScreen(el) {
   if (!el) return;
@@ -352,7 +353,7 @@ if (document.fonts) {
 }
 
 function openCodexScreen() {
-  if (codexOpen || isGameStarted || isGameOver || !codexScreenEl) return;
+  if (codexOpen || howtoOpen || isGameStarted || isGameOver || !codexScreenEl) return;
   codexOpen = true;
   codexSel = 0;
   buildCodexScreen();
@@ -470,6 +471,51 @@ document.getElementById("codexOpenBtn").addEventListener("click", () => {
 });
 document.getElementById("codexCloseBtn").addEventListener("click", () => {
   closeCodexScreen();
+});
+
+// ============================================================
+// 遊び方・操作方法（準備画面の左のボタンから開く。点検図鑑と同じく画面全体に出す）
+//   H キー / ゲームパッド X でも開き、ESC・H・Backspace / B・X・START でもどる（input.js）
+// ============================================================
+let howtoOpen = false;
+const howtoScreenEl = document.getElementById("howtoScreen");
+// ボタンのアイコンは、ゲーム内のドローンのドット絵
+document.getElementById("howtoOpenIcon").src = droneFrames[0].toDataURL();
+
+function openHowtoScreen() {
+  if (howtoOpen || codexOpen || titleOpen || isGameStarted || isGameOver || !howtoScreenEl) return;
+  howtoOpen = true;
+  howtoScreenEl.style.display = "flex";
+  howtoScreenEl.offsetHeight; // リフロー強制
+  fitToScreen(howtoScreenEl.querySelector(".howto-screen-content"));
+  howtoScreenEl.style.opacity = 1;
+  AudioSys.init();
+  AudioSys.resume();
+  Music.menu();
+  AudioSys.tone(660, 990, 0.1, "square", 0.08);
+}
+
+function closeHowtoScreen() {
+  if (!howtoOpen) return;
+  howtoOpen = false;
+  blurActiveButton();
+  howtoScreenEl.style.opacity = 0;
+  setTimeout(() => {
+    if (!howtoOpen) howtoScreenEl.style.display = "none";
+  }, 300);
+  AudioSys.tone(990, 660, 0.1, "square", 0.08);
+}
+
+document.getElementById("howtoOpenBtn").addEventListener("click", () => {
+  blurActiveButton();
+  openHowtoScreen();
+});
+document.getElementById("howtoCloseBtn").addEventListener("click", () => {
+  closeHowtoScreen();
+});
+// 画面のどこをタップ（クリック）しても閉じられる（読むだけの画面なので。スマホで BACK を探さなくてよいように）
+howtoScreenEl.addEventListener("click", () => {
+  closeHowtoScreen();
 });
 
 // 点検レポートは2ページ：1ページ目はランクと成績、2ページ目は守った暮らし・豆知識・点検図鑑
