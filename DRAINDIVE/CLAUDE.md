@@ -121,8 +121,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 | 10 | `render-overlay.js` | `renderQte`（QTE の表示と点検ポイントの「!」）、`drawHpRing`（ドローンを囲む 24 区切りの体力ゲージ。HUD パネルの体力の行は `.hp-item` で隠している）、`renderOverlay`（スピード線、コンボ、警告灯、体力低下の赤いふち、ヒビ、フラッシュなど） |
 | 11 | `render-city.js` | `renderShaft`（ゴールの縦穴を真下から見上げた画面。縦にまっすぐな円筒なので専用の簡単な描画。コンクリートの輪・はしごの足掛け・出口の青空）、`renderCity`（ゴール後の地上の街）と、1フレーム分の描画 `renderFrame` |
 | 12 | `state.js` | ゲーム状態の変数（体力・スコア・進行・演出） |
-| 13 | `input.js` | キーボード、`Pad`（ゲームパッド）、ポーズメニュー、タイトル画面 ⇄ 準備画面の切り替え（`titleOpen` / `leaveTitleScreen` / `showTitleScreen`）、難易度の選択（`setDifficulty` / `selectDifficulty`）、タッチ操作 `Touch`（どこでもスティック）と操作方法ごとの文言 `updateInputTexts`、結果画面・ゲームオーバー画面の「どこをクリック（タップ）しても進む」（`resultReady`。出てから 0.8 秒は受け付けない。キーボードは SPACE / Enter、パッドは A。`advanceResult`：点検レポートの1ページ目なら2ページ目へ、それ以外は準備画面へ。ページをめくってから 0.4 秒は もどらない）、メニューボタンのイベント |
-| 14 | `ui.js` | ログ、通知カード、HUD の更新 `updateUI`、点検レポート（`RANKS` / `showClearScreen`。2ページで、`showClearPage` で切り替える。1ページ目：左にランク・認定・コメント、右に成績。2ページ目：左に守った暮らし・土木マメ知識、右に点検図鑑）、画面に収まらない画面を縮める `fitToScreen`、守った世帯数、図鑑（`codexIconURL` / `renderCodex`、タイトル画面から開く `openCodexScreen`） |
+| 13 | `input.js` | キーボード、`Pad`（ゲームパッド）、ポーズメニュー、タイトル画面 ⇄ 準備画面の切り替え（`titleOpen` / `leaveTitleScreen` / `showTitleScreen`）、難易度の選択（`setDifficulty` / `selectDifficulty`）、準備画面から開く遊び方・図鑑のキー（H・C / パッドの X・Y）、タッチ操作 `Touch`（どこでもスティック）と操作方法ごとの文言 `updateInputTexts`、結果画面・ゲームオーバー画面の「どこをクリック（タップ）しても進む」（`resultReady`。出てから 0.8 秒は受け付けない。キーボードは SPACE / Enter、パッドは A。`advanceResult`：点検レポートの1ページ目なら2ページ目へ、それ以外は準備画面へ。ページをめくってから 0.4 秒は もどらない）、メニューボタンのイベント |
+| 14 | `ui.js` | ログ、通知カード、HUD の更新 `updateUI`、点検レポート（`RANKS` / `showClearScreen`。2ページで、`showClearPage` で切り替える。1ページ目：左にランク・認定・コメント、右に成績。2ページ目：左に守った暮らし・土木マメ知識、右に点検図鑑）、画面に収まらない画面を縮める `fitToScreen`、守った世帯数、図鑑（`codexIconURL` / `renderCodex`、タイトル画面・準備画面から開く `openCodexScreen`）、遊び方・操作方法（`openHowtoScreen` / `closeHowtoScreen`。準備画面の左のボタンから画面全体に出す。どこをタップしても閉じる）。準備画面は3列：左に遊び方のボタン、真ん中に難易度のパネル、右に点検図鑑のボタン |
 | 15 | `qte.js` | 点検 QTE（`startQte` / `qtePress` / `resolveQte` / `updateQte`）とチュートリアル（`tutorialPending`）、クリックでの撮影 |
 | 16 | `boss.js` | ラスボス「ファットバーグ」（巨大な油のかたまり）：`boss`（状態）/ `resetBoss`、`updateBoss`（警報・追いつく・ボス戦・撃破／救援。`main.js` からドローンの速さを受け取る）、弱点の QTE の結果 `resolveBossQte`（`qte.js` から呼ばれる）、油のしずく、描画 `addBossSprites`（`renderWorld` から）/ `renderBossHud`（`renderOverlay` から） |
 | 17 | `game.js` | ゲームの流れ：`startGame` / `togglePause` / `resetGame`、衝突判定 `hitsBox`、カウントダウン、ゴール演出、墜落、区間と増水の進行 |
@@ -216,7 +216,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File DRAINDIVE/tools/serve.ps1
 - タッチを使うと `touchMode` になり、`body` に `touch-mode` クラスがつく（指で操作する端末は最初から）。タイトル・準備画面の文言（`updateInputTexts`）、操作説明、QTE の「TAP!」、練習の説明カードをタッチ用に切り替える
 - 横向き専用：タッチ操作で縦向きのときは「スマホを横向きにしてね」（`#rotateNotice`）を出し、プレイ中なら一時停止する
 - Android などでは最初のタップで全画面＋横向き固定にする。iPhone の Safari は全画面にできないので何もしない（ホーム画面に追加して開けば全画面で動く）
-- UI の大きさ：タッチ操作のときは基準を 1120×630 にして少し大きく出す（844×390 の横向きスマホで 0.62 倍）
+- UI の大きさ：タッチ操作のときは基準を 1120×630 を `TOUCH_UI_ZOOM`（1.1）で割った約 1018×573 にして大きく出す（`screen.js`。844×390 の横向きスマホで 0.68 倍。文字が小さいという声で 1.1 倍にした）。キャンバスのドット文字（5×7）は整数倍でしか大きくできないので対象外
+  - 基準の横幅が約 1018 なので、それより広い画面（準備画面の 1040）は `.touch-mode` で狭めてある（960）。844×390・667×331・1024×768 で、どの画面も余計に縮めずに収まることを確かめた
   - 結果画面・ゲームオーバー画面・図鑑は、開いたとき（と画面の大きさが変わったとき）に収まらなければ、その画面だけさらに縮める（`ui.js` の `fitToScreen` / `fitOpenScreens`）。iPhone の Safari で結果画面が縦にはみ出し、下のボタンが押せなかったため。日本語のフォント（Google Fonts）を読み込み終わったときも測り直す
   - 縮める量は、同じ画面（zoom している親）の中に置いた「画面の高さの目印」との割合で決める。zoom の中の `getBoundingClientRect` は Chrome と iPhone（WebKit）で値がちがい、`window.innerHeight` とそのまま比べると、iPhone 16e で図鑑のパネルが画面の 1/6 ほどに縮んだため
   - 画面の要素をタップで操作させたいときは `mouseenter` だけでなく `click` も付け、`cursor: pointer` にする（スマホには mouseenter がない。iPhone はクリックできる見た目の要素にだけ click を送ることがある）。点検図鑑のマスがこれで選べなかった

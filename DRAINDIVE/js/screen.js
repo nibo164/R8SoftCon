@@ -33,15 +33,17 @@ let depthBuf = null; // ピクセルごとの奥行き
 // （pixel.css で各画面に zoom: var(--ui-scale) を掛ける）
 const UI_BASE_W = 1280;
 const UI_BASE_H = 720;
+// タッチ操作（スマホ）のときの UI の大きさ（1120×630 を基準にしたときの何倍か）。文字が小さいという声で 1.1 倍にした
+const TOUCH_UI_ZOOM = 1.1;
 
 function setupScreen() {
   const winW = window.innerWidth;
   const winH = Math.max(1, window.innerHeight);
-  // タッチ操作（スマホ）のときは画面が小さいので、基準を少し小さく（1120×630）して UI を大きめに出す
-  //   （どの画面も 1120×630 に収まる。いちばん縦に長い結果画面はスクロールする）
+  // タッチ操作（スマホ）のときは画面が小さいので、基準を小さく（1120×630 を TOUCH_UI_ZOOM で割った約 1018×573）して UI を大きめに出す
+  //   （縦に収まらない画面は ui.js の fitToScreen で縮める。横は、準備画面など幅の広い画面を pixel.css の .touch-mode で狭めてある）
   const touch = document.body.classList.contains("touch-mode");
-  const baseW = touch ? 1120 : UI_BASE_W;
-  const baseH = touch ? 630 : UI_BASE_H;
+  const baseW = touch ? 1120 / TOUCH_UI_ZOOM : UI_BASE_W;
+  const baseH = touch ? 630 / TOUCH_UI_ZOOM : UI_BASE_H;
   const uiScale = Math.min(winW / baseW, winH / baseH);
   document.documentElement.style.setProperty("--ui-scale", uiScale);
   // 実際に見えている高さ（iPhone の Safari の 100vh はアドレスバーのぶんも含むので、CSS ではこちらを使う）

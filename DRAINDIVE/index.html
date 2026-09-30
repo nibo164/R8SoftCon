@@ -118,56 +118,18 @@
         <div class="setup-header">
           <div class="setup-heading">MISSION BRIEFING</div>
         </div>
+        <!-- 左：遊び方のボタン / 真ん中：難易度のパネル / 右：点検図鑑のボタン -->
         <div class="setup-panels">
-          <div class="start-content setup-left">
-            <p class="setup-section">HOW TO PLAY</p>
-            <div class="jp-intro">
-              <p>きみは「下水道点検ドローン」のパイロット！</p>
-              <p>点検ポイント <strong>！</strong> に近づくとスローモーション。</p>
-              <p>
-                輪がピントの枠に重なった瞬間に <strong>ボタンで撮影</strong> しよう！
-              </p>
-              <p>曲がりくねる管と、大雨の増水に気をつけて</p>
-              <p>550m 先のゴールを目指せ！</p>
-            </div>
-            <p class="setup-section">CONTROLS</p>
-            <div class="instructions">
-              <p>
-                <span class="key-label">MOVE</span><span class="key">WASD</span
-                ><span class="key">←↑↓→</span>
-                <span class="key-label">INSPECT</span><span class="key">SPACE</span
-                ><span class="key">CLICK</span>
-              </p>
-              <p>
-                <span class="key-label">PAUSE</span><span class="key">ESC</span>
-                <span class="key-label">SOUND</span><span class="key">M</span>
-              </p>
-            </div>
-            <!-- タッチ操作のとき（スマホ・タブレット）はキーボードの説明の代わりにこちらを出す -->
-            <div class="instructions touch-instructions">
-              <p>
-                <span class="key-label">MOVE</span><span class="key">ドラッグ</span>
-                <span class="key-label">INSPECT</span><span class="key">タップ</span>
-              </p>
-              <p>画面のどこでも指をすべらせて操縦。輪が重なったらタップで撮影！</p>
-            </div>
-            <div class="pad-instructions" id="padInstructions">
-              <p class="pad-title">GAMEPAD DETECTED</p>
-              <p>
-                <span class="key-label">MOVE</span><span class="key">左スティック</span
-                ><span class="key">十字キー</span>
-                <span class="key-label">INSPECT</span><span class="key">A</span
-                ><span class="key">R2</span>
-              </p>
-              <p>
-                <span class="key-label">PAUSE</span><span class="key">START</span>
-                輪が重なった瞬間に A で撮影！
-              </p>
-            </div>
-          </div>
-          <!-- 右の列：上に難易度のパネル（高さ 3/4）、下に点検図鑑のボタン -->
-          <div class="setup-right-col">
-            <div class="start-content setup-right">
+          <!-- 遊び方・操作方法を開くボタン（H キー / ゲームパッド X でも開く） -->
+          <button id="howtoOpenBtn" class="codex-open-btn setup-side-btn">
+            <!-- ゲーム内のドローンのドット絵（ui.js で描き込む） -->
+            <img id="howtoOpenIcon" class="codex-open-icon howto-open-icon" alt="" />
+            <span class="codex-open-text">
+              HOW TO<br />PLAY<span class="codex-open-jp" id="howtoOpenJp">遊び方 [H]</span
+              ><span class="codex-open-progress">操作方法も見られるよ</span>
+            </span>
+          </button>
+          <div class="start-content setup-center">
             <!-- 難易度の選択（←→ / ↑↓ / 十字キーで選ぶ。クリックするとそのまま発進） -->
             <div class="diff-select">
               <p class="diff-title">
@@ -187,20 +149,88 @@
               <p class="diff-note" id="diffNote"></p>
             </div>
             <p class="blink-text" id="startPrompt">PRESS [SPACE]<br />TO LAUNCH</p>
-            </div>
-            <!-- 点検図鑑を開くボタン（C キー / ゲームパッド Y でも開く） -->
-            <button id="codexOpenBtn" class="codex-open-btn">
-              <!-- ゲーム内のひび割れのドット絵（ui.js の updateCodexOpenBtn で描き込む） -->
-              <img id="codexOpenIcon" class="codex-open-icon" alt="" />
-              <span class="codex-open-text">
-                CODEX<span class="codex-open-jp">点検図鑑 [C]</span
-                ><span class="codex-open-progress" id="codexOpenProgress"></span>
-              </span>
-            </button>
           </div>
+          <!-- 点検図鑑を開くボタン（C キー / ゲームパッド Y でも開く） -->
+          <button id="codexOpenBtn" class="codex-open-btn setup-side-btn">
+            <!-- ゲーム内のひび割れのドット絵（ui.js の updateCodexOpenBtn で描き込む） -->
+            <img id="codexOpenIcon" class="codex-open-icon" alt="" />
+            <span class="codex-open-text">
+              CODEX<span class="codex-open-jp" id="codexOpenJp">点検図鑑 [C]</span
+              ><span class="codex-open-progress" id="codexOpenProgress"></span>
+            </span>
+          </button>
         </div>
         <!-- タイトルへもどる（ESC / パッドの B でも。タッチ操作でも押せるようにボタンにしてある） -->
         <button class="help-text setup-back" id="setupBack">[ESC] タイトルへもどる</button>
+      </div>
+    </div>
+
+    <!-- 遊び方・操作方法（準備画面から開く。画面全体に出す） -->
+    <div id="howtoScreen" style="display: none">
+      <div class="howto-screen-content">
+        <h2>HOW TO PLAY</h2>
+        <p class="subtitle">遊び方・操作方法</p>
+        <div class="howto-screen-body">
+          <div class="howto-col">
+            <p class="setup-section">HOW TO PLAY<span class="setup-section-jp">遊び方</span></p>
+            <!-- 見出しの下の中身は、列の残りの高さの中で上下の真ん中に置く（左右の列で高さがちがうため） -->
+            <div class="howto-col-body">
+              <div class="jp-intro">
+                <p>きみは「下水道点検ドローン」のパイロット！</p>
+                <p>点検ポイント <strong>！</strong> に近づくとスローモーション。</p>
+                <p>
+                  輪がピントの枠に重なった瞬間に <strong>ボタンで撮影</strong> しよう！
+                </p>
+                <p>曲がりくねる管と、大雨の増水に気をつけて</p>
+                <p>550m 先のゴールを目指せ！</p>
+              </div>
+            </div>
+          </div>
+          <div class="howto-col">
+            <p class="setup-section">CONTROLS<span class="setup-section-jp">操作方法</span></p>
+            <div class="howto-col-body">
+              <div class="instructions">
+                <p>
+                  <span class="key-label">MOVE</span><span class="key">WASD</span
+                  ><span class="key">←↑↓→</span>
+                  <span class="key-label">INSPECT</span><span class="key">SPACE</span
+                  ><span class="key">CLICK</span>
+                </p>
+                <p>
+                  <span class="key-label">PAUSE</span><span class="key">ESC</span>
+                  <span class="key-label">SOUND</span><span class="key">M</span>
+                </p>
+              </div>
+              <!-- タッチ操作のとき（スマホ・タブレット）はキーボードの説明の代わりにこちらを出す -->
+              <div class="instructions touch-instructions">
+                <p>
+                  <span class="key-label">MOVE</span><span class="key">ドラッグ</span>
+                  <span class="key-label">INSPECT</span><span class="key">タップ</span>
+                </p>
+                <p>画面のどこでも指をすべらせて操縦。輪が重なったらタップで撮影！</p>
+              </div>
+              <div class="pad-instructions" id="padInstructions">
+                <p class="pad-title">GAMEPAD DETECTED</p>
+                <p>
+                  <span class="key-label">MOVE</span><span class="key">左スティック</span
+                  ><span class="key">十字キー</span>
+                  <span class="key-label">INSPECT</span><span class="key">A</span
+                  ><span class="key">R2</span>
+                </p>
+                <p>
+                  <span class="key-label">PAUSE</span><span class="key">START</span>
+                  輪が重なった瞬間に A で撮影！
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="menu-options">
+          <button id="howtoCloseBtn" class="menu-btn">
+            BACK<span class="menu-btn-jp">準備画面へもどる</span>
+          </button>
+        </div>
+        <p class="help-text" id="howtoHelp">[ESC] / [H] でもどる</p>
       </div>
     </div>
 

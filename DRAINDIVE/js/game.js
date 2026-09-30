@@ -6,7 +6,7 @@
 
 // ゲーム開始（スペースキー / ゲームパッドのAボタン から呼ばれる）
 function startGame() {
-  if (isGameStarted || isGameOver || codexOpen || titleOpen) return;
+  if (isGameStarted || isGameOver || codexOpen || howtoOpen || titleOpen) return;
   isGameStarted = true;
   // 選んだ難易度でコースを並べ直す（毎回ちがう配置になる）
   placeObjects(diff);

@@ -11,6 +11,13 @@ function normalizeKey(e) {
 }
 window.addEventListener("keydown", (e) => {
   keys[normalizeKey(e)] = true;
+  // 遊び方を開いているあいだは、閉じる操作だけ受け付ける
+  if (howtoOpen) {
+    const k = normalizeKey(e);
+    if (k === "Escape" || k === "h" || k === "Backspace" || k === "Enter" || k === " ") closeHowtoScreen();
+    e.preventDefault();
+    return;
+  }
   // 図鑑を開いているあいだは、図鑑の操作だけ受け付ける
   if (codexOpen) {
     const k = normalizeKey(e);
@@ -35,8 +42,12 @@ window.addEventListener("keydown", (e) => {
       return;
     }
   } else if (!isGameStarted && !isGameOver) {
-    // 準備画面：↑↓（W・S）/ ←→（A・D）で難易度を選び、ESC / Backspace でタイトルへもどる
+    // 準備画面：↑↓（W・S）/ ←→（A・D）で難易度を選び、ESC / Backspace でタイトルへもどる。H で遊び方を開く
     const k = normalizeKey(e);
+    if (k === "h") {
+      openHowtoScreen();
+      return;
+    }
     if (k === "ArrowUp" || k === "w" || k === "ArrowLeft" || k === "a") selectDifficulty(-1);
     if (k === "ArrowDown" || k === "s" || k === "ArrowRight" || k === "d") selectDifficulty(1);
     if (k === "Escape" || k === "Backspace") {
@@ -174,6 +185,7 @@ const Pad = {
     const startPressed = this.pressed(pad, 9);
     const bPressed = this.pressed(pad, 1);
     const yPressed = this.pressed(pad, 3);
+    const xPressed = this.pressed(pad, 2);
     // メニュー用の上下（-1: 上 / 1: 下）。スティックは大きく倒したときだけ
     const menuDir = ay < -0.5 ? -1 : ay > 0.5 ? 1 : 0;
     const menuMoved = menuDir !== 0 && menuDir !== this.prevMenuDir;
@@ -192,8 +204,10 @@ const Pad = {
     if (!isGameStarted && !isGameOver) {
       // Y で点検図鑑を開く（図鑑の中は十字キーで選び、B / Y / START でもどる）
       // タイトル画面：Y 以外のどのボタンでも準備画面へ
-      // 準備画面：十字キー / スティックの上下・左右で難易度を選び、A で発進、B でタイトルへ
-      if (codexOpen) {
+      // 準備画面：十字キー / スティックの上下・左右で難易度を選び、A で発進、B でタイトルへ、X で遊び方（B / X / A / START でもどる）
+      if (howtoOpen) {
+        if (bPressed || xPressed || aPressed || startPressed) closeHowtoScreen();
+      } else if (codexOpen) {
         if (menuMovedX) moveCodexSel(menuDirX, 0);
         if (menuMoved) moveCodexSel(0, menuDir);
         if (bPressed || yPressed || startPressed) closeCodexScreen();
@@ -201,6 +215,8 @@ const Pad = {
         openCodexScreen();
       } else if (titleOpen) {
         if (pad.buttons.some((b, i) => this.pressed(pad, i))) leaveTitleScreen();
+      } else if (xPressed) {
+        openHowtoScreen();
       } else {
         if (menuMoved) selectDifficulty(menuDir);
         if (menuMovedX) selectDifficulty(menuDirX);
@@ -351,8 +367,9 @@ function updateInputTexts() {
   set("clearContinue", cont);
   set("gameOverContinue", cont);
   set("clearNext", pad ? "PRESS [A] TO NEXT" : touchMode ? "TAP TO NEXT" : "CLICK TO NEXT");
-  const codexJp = document.querySelector(".codex-open-jp");
-  if (codexJp) codexJp.innerText = touchMode && !pad ? "点検図鑑" : "点検図鑑 [C]";
+  set("codexOpenJp", pad ? "点検図鑑 [Y]" : touchMode ? "点検図鑑" : "点検図鑑 [C]");
+  set("howtoOpenJp", pad ? "遊び方 [X]" : touchMode ? "遊び方" : "遊び方 [H]");
+  set("howtoHelp", pad ? "[B] でもどる" : touchMode ? "画面をタップしてもどる" : "[ESC] / [H] でもどる");
 }
 
 window.addEventListener("gamepadconnected", (e) => {
@@ -445,7 +462,7 @@ function leaveTitleScreen() {
 }
 
 function showTitleScreen() {
-  if (titleOpen || isGameStarted || isGameOver || codexOpen) return;
+  if (titleOpen || isGameStarted || isGameOver || codexOpen || howtoOpen) return;
   titleOpen = true;
   blurActiveButton();
   fadeScreen(startScreenEl, false);
