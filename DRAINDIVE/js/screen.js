@@ -1,0 +1,82 @@
+// ============================================================
+// js/screen.js — 低解像度の画面の準備とドローン（カメラ）の位置
+// ※ index.html から決まった順番で読み込む（普通の <script>。変数や関数はファイルをまたいで共有される）
+//    読み込んだ時点で動く処理は、自分より前のファイルの中身だけを使うこと
+// ============================================================
+
+// ============================================================
+// 下水道インスペクター ドット絵疑似3D版（index.html 用）
+// Three.js を使わず、Canvas 2D だけで疑似3Dを描画する。
+//   - 下水管：低解像度画面の1ピクセルごとに視線と管の交点を計算して
+//             ドット絵テクスチャを貼る（トンネル描画）。管は曲がりくねる
+//   - 水面　：高さを持った水平な面。増水イベントで水位が上がる
+//   - 壁の異常：管の壁面に直接描き込むデカール（遠近が正しくつく）
+//   - 障害物：距離に応じて拡大縮小するスプライト（スペースハリアー方式）
+//   - ドローン：少し後ろから追いかける視点で画面に表示する
+// 動画映えする演出（破片・フラッシュ・ヒットストップ・BGM など）もここで行う。
+// ============================================================
+
+// 画面設定（縦180ピクセル固定。横幅はウィンドウの縦横比に合わせる）
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const SCREEN_H = 180;
+const FOV = 75; // 縦方向の視野角（元の3D版と同じ）
+const BASE_FOCAL = SCREEN_H / 2 / Math.tan(((FOV / 2) * Math.PI) / 180);
+let focal = BASE_FOCAL; // スピードが上がると小さくして視野を広げる（ワープ感）
+let SCREEN_W = 320;
+let frameImage = null; // 管を描き込む画像バッファ
+let frameBuf32 = null; // 上のバッファを32bit単位で書き込むためのビュー
+let idBuf = null; // ピクセルごとに「どのデカール（壁の異常）が映っているか」
+let depthBuf = null; // ピクセルごとの奥行き
+
+// HTML の UI は 1280×720 を基準に作り、ウィンドウの大きさに合わせて全体を拡大縮小する
+// （pixel.css で各画面に zoom: var(--ui-scale) を掛ける）
+const UI_BASE_W = 1280;
+const UI_BASE_H = 720;
+// タッチ操作（スマホ）のときの UI の大きさ（1120×630 を基準にしたときの何倍か）。文字が小さいという声で 1.1 倍にした
+const TOUCH_UI_ZOOM = 1.1;
+
+function setupScreen() {
+  const winW = window.innerWidth;
+  const winH = Math.max(1, window.innerHeight);
+  // タッチ操作（スマホ）のときは画面が小さいので、基準を小さく（1120×630 を TOUCH_UI_ZOOM で割った約 1018×573）して UI を大きめに出す
+  //   （縦に収まらない画面は ui.js の fitToScreen で縮める。横は、準備画面など幅の広い画面を pixel.css の .touch-mode で狭めてある）
+  const touch = document.body.classList.contains("touch-mode");
+  const baseW = touch ? 1120 / TOUCH_UI_ZOOM : UI_BASE_W;
+  const baseH = touch ? 630 / TOUCH_UI_ZOOM : UI_BASE_H;
+  const uiScale = Math.min(winW / baseW, winH / baseH);
+  document.documentElement.style.setProperty("--ui-scale", uiScale);
+  // 実際に見えている高さ（iPhone の Safari の 100vh はアドレスバーのぶんも含むので、CSS ではこちらを使う）
+  document.documentElement.style.setProperty("--app-h", `${winH}px`);
+  // 開いている画面が収まらなくなったら縮めなおす（ui.js。読み込み前の起動時は何もしない）
+  if (typeof fitOpenScreens === "function") fitOpenScreens();
+
+  const fullW = Math.round(SCREEN_H * (winW / winH));
+  SCREEN_W = Math.max(200, Math.min(480, fullW));
+  // 縦長・超横長で横幅が範囲外になったときは、引き伸ばさずに上下または左右に黒い帯を入れる
+  //   範囲内なら画面いっぱい（スマホは CSS の 100vh がアドレスバーのぶんずれるので、innerWidth / innerHeight で決める）
+  if (SCREEN_W === fullW) {
+    canvas.style.width = `${winW}px`;
+    canvas.style.height = `${winH}px`;
+    canvas.style.left = canvas.style.top = "0px";
+  } else {
+    const s = Math.min(winW / SCREEN_W, winH / SCREEN_H);
+    canvas.style.width = `${SCREEN_W * s}px`;
+    canvas.style.height = `${SCREEN_H * s}px`;
+    canvas.style.left = `${(winW - SCREEN_W * s) / 2}px`;
+    canvas.style.top = `${(winH - SCREEN_H * s) / 2}px`;
+  }
+  canvas.width = SCREEN_W;
+  canvas.height = SCREEN_H;
+  ctx.imageSmoothingEnabled = false; // ドットをにじませない
+  frameImage = ctx.createImageData(SCREEN_W, SCREEN_H);
+  frameBuf32 = new Uint32Array(frameImage.data.buffer);
+  idBuf = new Int16Array(SCREEN_W * SCREEN_H);
+  depthBuf = new Float32Array(SCREEN_W * SCREEN_H);
+}
+setupScreen();
+
+// ドローンの位置（「まっすぐな管」の座標系。管の曲がりは描画のときだけ加える）
+//   x: 右が正 / y: 上が正 / z: 奥へ進むほど負
+const cam = { x: 0, y: 0, z: 0 };
+
